@@ -1,0 +1,93 @@
+﻿# mod03.psm1
+# 役割: 現在の access_token を検証し、必要なら refresh → ヘッダを返す
+# 前提: mykey.json / youtube_tokens.json は mod02 と同じ構成
+#       mod02.psm1 は Update-AccessToken を公開している（内部で保存まで行う）
+
+Set-StrictMode -Version Latest
+
+# 依存モジュールの自動読込（mod01: JSON I/O, mod02: Update-AccessToken）
+$root = $env:AI_SCRIPT_ROOT
+if (-not $root) { $root = 'C:\ai-script' }
+$mod01 = Join-Path $root 'mod\mod01.psm1'
+$mod02 = Join-Path $root 'mod\mod02.psm1'
+
+if (-not (Get-Command Import-JsonFile -ErrorAction SilentlyContinue)) {
+    if (Test-Path $mod01) { Import-Module $mod01 -Force } else { throw "mod01.psm1 が見つかりません: $mod01" }
+}
+if (-not (Get-Command Update-AccessToken -ErrorAction SilentlyContinue)) {
+    if (Test-Path $mod02) { Import-Module $mod02 -Force } else { throw "mod02.psm1 が見つかりません: $mod02" }
+}
+
+function Get-ConfigPath {
+    $cfg = $env:AI_CONFIG_PATH
+    if (-not $cfg -or -not (Test-Path $cfg)) { $cfg = 'C:\ai-script\config\mykey.json' }
+    return $cfg
+}
+
+# ---------- アクセストークンを用意 ----------
+function Ensure-AccessToken {
+    [CmdletBinding()]
+    param(
+        [ref]$AccessToken,
+        [ref]$Headers
+    )
+
+    # 設定とトークン読込
+    $configPath = Get-ConfigPath
+    $config = Import-JsonFile -Path $configPath
+    if (-not $config) { throw "設定ファイルの読込に失敗しました: $configPath" }
+
+    $tokenPath = $config.TokenPath
+    if (-not $tokenPath) { throw "mykey.json に TokenPath がありません: $configPath" }
+    if (-not (Test-Path $tokenPath)) { throw "トークンファイルがありません: $tokenPath" }
+
+    $tok = Import-JsonFile -Path $tokenPath
+    if (-not $tok) { throw "トークンJSONの読込に失敗: $tokenPath" }
+
+    # 現在のトークンで試す
+    $AccessToken.Value = $tok.access_token
+    $Headers.Value = @{
+        Authorization = "Bearer $($tok.access_token)"
+        'Content-Type' = 'application/json'
+    }
+
+    $testUri = "https://www.googleapis.com/youtube/v3/channels?part=id&mine=true"
+    try {
+        Invoke-RestMethod -Headers $Headers.Value -Uri $testUri -Method Get | Out-Null
+        return  # そのまま利用OK
+    }
+    catch {
+        # 失敗時は refresh（mod02.psm1 の公開関数で内部保存まで任せる）
+        if (-not $tok.refresh_token) { throw "refresh_token がありません。最初の認可からやり直してください。($tokenPath)" }
+        $res = Update-AccessToken  # = Refresh-AccessToken（エイリアス）でもOK
+
+        if (-not $res.access_token) {
+            throw "アクセストークンの更新に失敗しました。（応答なし）"
+        }
+
+        # 保存は Update-AccessToken 側で完了済み。最新を再読込して出力を更新。
+        $tok2 = Import-JsonFile -Path $tokenPath
+        if (-not $tok2 -or -not $tok2.access_token) { throw "更新後のトークン再読込に失敗: $tokenPath" }
+
+        $AccessToken.Value = $tok2.access_token
+        $Headers.Value = @{
+            Authorization = "Bearer $($tok2.access_token)"
+            'Content-Type' = 'application/json'
+        }
+
+        # 念のためもう一度疎通テスト
+        Invoke-RestMethod -Headers $Headers.Value -Uri $testUri -Method Get | Out-Null
+        return
+    }
+}
+
+# 便利ラッパ（戻り値で受けたいとき用）
+function Get-AuthHeaders {
+    [CmdletBinding()]
+    param()
+    $at = $null; $hd = $null
+    Ensure-AccessToken -AccessToken ([ref]$at) -Headers ([ref]$hd)
+    [pscustomobject]@{ access_token = $at; headers = $hd }
+}
+
+Export-ModuleMember -Function Ensure-AccessToken, Get-AuthHeaders

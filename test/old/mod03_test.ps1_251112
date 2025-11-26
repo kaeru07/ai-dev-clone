@@ -1,0 +1,30 @@
+﻿# mod03_test.ps1
+# 実行例: powershell -File "C:\ai-script\test\mod03_test.ps1"
+# 目的: mod03 の Ensure-AccessToken が「呼ぶだけ」で動き、YouTube API に疎通できることを確認
+
+try { chcp 65001 > $null } catch {}
+$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding  = [System.Text.UTF8Encoding]::new($false)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$ModulePath = "C:\ai-script\mod\mod03.psm1"
+if (-not (Test-Path $ModulePath)) { throw "モジュールが見つかりません: $ModulePath" }
+Import-Module $ModulePath -Force
+
+function Assert($c,[string]$m){ if(-not $c){ throw "ASSERT FAILED: $m" } }
+
+# 呼ぶだけでOK（設定読込とrefreshはモジュール側）
+$at = $null
+$hd = $null
+Ensure-AccessToken -AccessToken ([ref]$at) -Headers ([ref]$hd)
+
+Assert $at "access_token が空です"
+Assert ($hd -and $hd.Authorization) "Authorization ヘッダがありません"
+
+# 実疎通（チャンネルIDを1件取得）
+$uri = "https://www.googleapis.com/youtube/v3/channels?part=id&mine=true"
+$res = Invoke-RestMethod -Headers $hd -Uri $uri -Method Get
+Assert ($res.items.Count -ge 0) "YouTube API 応答が不正"
+
+Write-Host "=== MOD03 TEST PASSED ==="

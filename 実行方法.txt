@@ -1,0 +1,86 @@
+powershellを起動して下記を実行
+powershell -ExecutionPolicy Bypass -File "C:\ai-script\main.ps1"
+
+
+このシステムは、PowerShell モジュールを段階的に分割した構成になっていて、
+それぞれのモジュールが明確な役割を担い、最終的に main.ps1 で連携して動作します。
+
+🎯 システム概要
+
+YouTube Live のコメントを自動で取得 → Dify に送信して AI 応答 →
+応答を YouTube に投稿し、さらに Cartesia で音声化（TTS）する 一連の流れを PowerShell で実現。
+
+🧩 モジュール構成（実装済み・確定版）
+モジュール：役割（ひと言）：詳細 / 代表関数
+mod01.psm1：JSONユーティリティ：Import/Export-JsonFile など。設定/トークン/ログの入出力で全モジュールから共通利用。
+mod02.psm1：認証ゲートキーパー：アクセストークンの有効期限をローカル判定（issued_at + expires_in）。期限切れ時のみ mod03 を呼ぶ。Ensure-AccessToken（-AccessToken ([ref]) -Headers ([ref])）。
+mod03.psm1：リフレッシュ実行：refresh_token で access_token を再発行＆保存。Google OAuth2 /token に実ネットワーク接続。Update-AccessToken など。
+mod04.psm1：URL→ID抽出：YouTube URL/文字列から videoId を抽出。オフライン動作。Extract-VideoId。
+mod05.psm1：配信検出・chatId特定：現在のライブ配信を自動検出し videoId/liveChatId を取得。liveBroadcasts?mine=true を第一候補、保険で search?channelId。Detect-ActiveLive, Get-LiveChatId, Resolve-LiveChat。
+mod06.psm1：コメント取得：liveChat/messages をポーリングして新着コメントを拾う。重複排除/ページネーション対応。Get-LiveChatMessages, Watch-LiveChatLoop。
+mod07.psm1：Dify応答：コメント本文を Dify /v1/chat-messages に投げて応答テキストを取得。Get-DifyApiKey, Send-MessageToDify, Invoke-DifyChat。
+mod08.psm1：YouTube投稿：応答テキストをライブチャットへ投稿。Post-LiveChatMessage。
+main.ps1：統合エントリ：認証 → 配信検出 → コメント取得 → Dify応答 → YouTube投稿 を直列実行。
+
+
+⚙️ main.ps1 の処理フロー
+
+モジュール読込
+
+Import-Module "C:\ai-script\mod\mod02.psm1" -Force
+Import-Module "C:\ai-script\mod\mod05.psm1" -Force
+Import-Module "C:\ai-script\mod\mod06.psm1" -Force
+Import-Module "C:\ai-script\mod\mod07.psm1" -Force
+Import-Module "C:\ai-script\mod\mod08.psm1" -Force
+Import-Module "C:\ai-script\mod\mod09.psm1" -Force
+
+
+Google 認証 → 配信検出
+
+Ensure-AccessToken：トークンを確認・更新
+Detect-ActiveLive：現在配信中のライブを特定
+Resolve-LiveChat：その配信の liveChatId を取得
+チャット監視ループ（mod06）
+YouTube Live API (liveChat/messages) を一定間隔でポーリング
+新規コメントを検出して処理
+AI応答（mod07）
+コメント本文を Invoke-DifyChat で Dify API (/v1/chat-messages) に送信
+応答テキスト $answer を受け取る
+YouTube への投稿
+Post-LiveChatMessage で $answer を配信チャットへ投稿
+
+
+🔑 設定ファイル (C:\ai-script\config\)
+・youtube_tokens.json（アクセストークンやリフレッシュトークンが記載、アクセストークンは自動更新。リフレッシュトークンが期限きれたら認可URLで手動で更新）
+・mykey.json（DifyAPIキーなどいろいろ）一番秘匿性の高いファイル
+
+
+Provider を "cartesia" にすると Cartesia API を利用、
+"openai" にすれば OpenAI TTS API（tts-1）を使用。
+
+📄 ファイル構成例
+C:\ai-script\
+├─ config\
+│   └─ mykey.json
+├─ mod\
+│   ├─ mod02.psm1
+│   ├─ mod05.psm1
+│   ├─ mod06.psm1
+│   ├─ mod07.psm1
+│   └─ mod08.psm1
+├─ test\
+│   ├─ mod02_test.ps1
+│   ├─ mod05_test.ps1
+│   ├─ mod06_test.ps1
+│   ├─ mod07_test.ps1
+│   └─ mod08_test.ps1
+└─ main.ps1
+
+💬 動作イメージ
+視聴者コメント ("!こんにちは")
+       ↓
+mod06：コメント取得
+       ↓
+mod07：Dify APIへ送信 → "こんにちは！今日はいい天気ですね。"
+       ↓
+mod08：コメントをYouTubeへ投稿
