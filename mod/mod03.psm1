@@ -85,6 +85,27 @@ function Invoke-TokenRefreshInternal {
                 }
             }
         } catch {}
+        Write-Host "`n[エラー] トークンリフレッシュに失敗しました。" -ForegroundColor Red
+        Write-Host "手動でトークンを更新してください。" -ForegroundColor Yellow
+        Write-Host "詳細: $msg`n" -ForegroundColor Gray
+        
+        Write-Host "手動更新手順のファイルを開きますか？ (y/n): " -NoNewline -ForegroundColor Cyan
+        $response = Read-Host
+        if ($response -eq 'y') {
+            $manualPath = "C:\ai-script\リフレッシュトークン手動更新手順.xlsx"
+            if (Test-Path $manualPath) {
+                try {
+                    Start-Process $manualPath
+                    Write-Host "ファイルを開きました。" -ForegroundColor Green
+                } catch {
+                    Write-Host "ファイルを開けませんでした: $_" -ForegroundColor Red
+                }
+            } else {
+                Write-Host "手順ファイルが見つかりません: $manualPath" -ForegroundColor Red
+                Write-Host "下記はエラー内容です。" -ForegroundColor Yellow
+            }
+        }
+        
         throw "トークンリフレッシュ失敗: $msg"
     }
 }
