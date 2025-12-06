@@ -32,7 +32,6 @@ Import-Module "C:\ai-script\mod\mod05.psm1" -Force
 Import-Module "C:\ai-script\mod\mod06.psm1" -Force
 Import-Module "C:\ai-script\mod\mod07.psm1" -Force
 Import-Module "C:\ai-script\mod\mod08.psm1" -Force
-Import-Module "C:\ai-script\mod\mod09.psm1" -Force
 
 
 Google 認証 → 配信検出
