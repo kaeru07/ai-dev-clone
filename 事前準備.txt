@@ -1,0 +1,50 @@
+■ 事前準備
+
+【1】Google 認証（YouTube用）
+- ライブチャットの「取得 + 投稿」権限を付けて認可する
+- 認証が完了すると youtube_tokens.json に保存される
+・access_token → 自動更新される
+・refresh_token → 手動で再取得が必要な場合あり（失効時）
+
+→ これが無いと YouTube コメント取得・返信ができない
+
+【2】Dify API キー設定（AI応答用）
+- Dify のアプリ設定から APIキーを取得
+- mykey.json に保存する
+
+→ これが無いと AI応答を返せない
+
+【3】TTS設定（音声化する場合だけ）
+- mykey.json に Provider を設定
+  "openai" なら OpenAI TTS
+  "cartesia" なら Cartesia TTS
+- テキスト投稿だけなら設定不要
+
+→ 音声返答を使わない場合はスキップOK
+
+---------------------------------
+▼ 最低限必要なファイル
+
+用途：YouTube コメント動作
+必須：youtube_tokens.json
+
+用途：Dify AI 応答
+必須：mykey.json
+
+用途：TTS（音声化）
+任意：mykey.json に Provider 追記
+
+---------------------------------
+▼ 注意ポイント（重要）
+
+・access_token は自動更新されるので触らない
+・refresh_token が切れたら再認証手続きが必要
+・基本的に自分で編集するのは mykey.json のみ
+
+---------------------------------
+■ まとめ
+
+youtube_tokens.json & mykey.jsonを更新済みで
+配信が始まっていれば
+
+→ main.ps1 を実行するだけで動く

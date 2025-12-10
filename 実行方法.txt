@@ -1,14 +1,15 @@
-powershellを起動して下記を実行
-powershell -ExecutionPolicy Bypass -File "C:\ai-script\main.ps1"
-
-
-このシステムは、PowerShell モジュールを段階的に分割した構成になっていて、
+🎯 システム概要
+①YouTube Live のコメントを自動で取得 → Dify に送信して AI 応答 
+→応答を YouTube に投稿し、さらに Cartesia で音声化（TTS）する一連の流れを PowerShell で実現。
+②このシステムは、PowerShell モジュールを段階的に分割した構成になっていて、
 それぞれのモジュールが明確な役割を担い、最終的に main.ps1 で連携して動作します。
 
-🎯 システム概要
+■ 事前準備（これだけ）
+事前準備.txt参照
 
-YouTube Live のコメントを自動で取得 → Dify に送信して AI 応答 →
-応答を YouTube に投稿し、さらに Cartesia で音声化（TTS）する 一連の流れを PowerShell で実現。
+🎯　実行方法
+powershellを起動して下記を実行
+powershell -ExecutionPolicy Bypass -File "C:\ai-script\main.ps1"
 
 🧩 モジュール構成（実装済み・確定版）
 モジュール：役割（ひと言）：詳細 / 代表関数
@@ -42,7 +43,7 @@ Resolve-LiveChat：その配信の liveChatId を取得
 チャット監視ループ（mod06）
 YouTube Live API (liveChat/messages) を一定間隔でポーリング
 新規コメントを検出して処理
-AI応答（mod07）
+AI応答（mod07）	
 コメント本文を Invoke-DifyChat で Dify API (/v1/chat-messages) に送信
 応答テキスト $answer を受け取る
 YouTube への投稿
@@ -57,23 +58,18 @@ Post-LiveChatMessage で $answer を配信チャットへ投稿
 Provider を "cartesia" にすると Cartesia API を利用、
 "openai" にすれば OpenAI TTS API（tts-1）を使用。
 
-📄 ファイル構成例
+■ ファイル構成（役割つき）
 C:\ai-script\
-├─ config\
-│   └─ mykey.json
-├─ mod\
-│   ├─ mod02.psm1
-│   ├─ mod05.psm1
-│   ├─ mod06.psm1
-│   ├─ mod07.psm1
-│   └─ mod08.psm1
-├─ test\
-│   ├─ mod02_test.ps1
-│   ├─ mod05_test.ps1
-│   ├─ mod06_test.ps1
-│   ├─ mod07_test.ps1
-│   └─ mod08_test.ps1
-└─ main.ps1
+├─ config\   ← 超重要（秘密情報）
+│   ├─ youtube_tokens.json  ← トークン自動更新対象
+│   └─ mykey.json           ← Dify/API設定
+├─ mod\      ← 機能の本体（分割）
+│   ├─ mod02.psm1  認証管理（Ensure-AccessToken）
+│   ├─ mod05.psm1  配信検出 / LiveChat特定
+│   ├─ mod06.psm1  コメント監視（ポーリング）
+│   ├─ mod07.psm1  AI応答（Dify）
+│   └─ mod08.psm1  YouTube投稿
+└─ main.ps1  ← 入口：一連の処理を直列実行
 
 💬 動作イメージ
 視聴者コメント ("!こんにちは")
@@ -83,3 +79,12 @@ mod06：コメント取得
 mod07：Dify APIへ送信 → "こんにちは！今日はいい天気ですね。"
        ↓
 mod08：コメントをYouTubeへ投稿
+
+■ 停止方法
+・PowerShellウィンドウを閉じる
+・Ctrl + C
+
+■ トラブル時の見方
+認証エラー → youtube_tokens.json / 時刻ズレ
+AI応答が返らない → Dify設定
+コメントが拾えない → ライブチャット有効か
