@@ -10,7 +10,7 @@ echo 2) バトルログ(ランクマ)が見える状態にする
 echo.
 echo 準備ができたら Enter を押してください
 pause > nul
-node "%~dp0src\export_buckler.js"
+node "%~dp0src\export_buckler_auto.js"
 
 if errorlevel 1 (
   echo.

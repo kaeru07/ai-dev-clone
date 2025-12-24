@@ -16,6 +16,9 @@ const { chromium } = require("playwright");
 // ====== SETTINGS ======
 const SID = "1146188535"; // ←あなたのsid（URLの /profile/{sid}/ に入ってる数値）
 const TOTAL_PAGES = 10;
+const SCRAPE_INTERVAL = 150; // 分（スクレイピング間隔）
+const KEEP_ALIVE_INTERVAL = 60; // 分（セッション延命のページアクセス間隔）
+const SESSION_FILE = path.join(__dirname, "buckler-session.json");
 
 const BASE_URL = `https://www.streetfighter.com/6/buckler/ja-jp/profile/${SID}/battlelog/rank`;
 const OUTPUT_DIR = `C:\\ai-script\\tools\\sf6-buckler-export\\exported-csv`;
@@ -52,11 +55,13 @@ function formatBattleTime(isoWithTZ) {
 /**
  * round_results の値が 0/1 だけじゃない試合があるので耐性を持たせる
  * 目安:
- *   0 = lose round
- *   1 = win round
- *   5,8 = win扱いで良さそう（UNKNOWNになってる原因の代表）
- *   6 = "特殊/中断/引き分け"系のことがあるので win/loseカウントから除外
- */
+  8=P　パーフェクト勝ち
+  7=CA　CAで勝ち
+  6=SA　SAで勝ち
+  5=OD　ODで勝ち
+  2=C　　削り勝ち
+  1=V　通常勝ち
+  0=L　通常負け */
 // countRoundWins removed: use decideResultAndScore() only
 
 function _classifyRoundCode(v) {
@@ -88,6 +93,15 @@ function decideResultAndScore(myRR, oppRR) {
     else if (oc === "L" && mc !== "L") myWin++; // fallback
     else unknown++;
   }
+  // 勝利数字パターン
+  /*
+  8=P
+  7=CA
+  6=SA
+  5=OD
+  2=C
+  1=V
+  */
 
   const score = `${myWin}-${oppWin}`;
 
@@ -120,6 +134,10 @@ function csvEscape(v) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function waitForEnter() {
@@ -178,7 +196,6 @@ function pickSides(replay, myShortId, myFighterId) {
 
 async function main() {
   ensureDir(OUTPUT_DIR);
-  const outPath = path.join(OUTPUT_DIR, `battlelog_${nowStamp()}.csv`);
 
   // Edgeで動かしたい場合：channel: "msedge" を使う
   // ただし環境によっては未対応なので、まずはchromium標準でOK
@@ -280,6 +297,7 @@ async function main() {
       const oppRR = opp?.round_results;
 
       const { result, round_score } = decideResultAndScore(myRR, oppRR);
+      const myRoundResults = JSON.stringify(myRR || []);
 
       const replayId = r?.replay_id || "";
 
@@ -291,7 +309,7 @@ async function main() {
         myMr,
         oppMr,
         result,
-        round_score,
+        myRoundResults,
         replayId,
         String(p),
       ]
