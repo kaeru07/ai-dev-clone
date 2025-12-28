@@ -45,12 +45,18 @@ function ensureDir(dir) {
 function formatBattleTime(isoWithTZ) {
   if (!isoWithTZ) return "";
   const core = String(isoWithTZ).slice(0, 19);
-  return core.replace("T", "-");
+  // フォーマット: YYYY-MM-DD-HHMM (コロンと秒を除去)
+  return core.replace("T", "-").replace(/:(\d{2}):(\d{2})$/, "$1");
 }
 
 function _classifyRoundCode(v) {
-  if (v === 1 || v === 5 || v === 6 || v === 8) return "W";
-  if (v === 0 || v === 7) return "L";
+  // ラウンド結果コード:
+  // 8=P (Perfect), 7=CA (Critical Art), 6=SA (Super Art),
+  // 5=OD (Overdrive), 2=C (Chip), 1=V (Victory)
+  // 0=負け, それ以外は勝ち
+  if (v === 0) return "L";
+  if (v === 1 || v === 2 || v === 5 || v === 6 || v === 7 || v === 8)
+    return "W";
   return "U";
 }
 
@@ -159,6 +165,22 @@ function pickSides(replay, myShortId, myFighterId) {
   return { me: p1, opp: p2, meSide: 1 };
 }
 
+async function consolidateCSV() {
+  console.log("\n====================================");
+  console.log("CSV統合処理を開始します...");
+  console.log("====================================");
+  try {
+    const consolidateScript = path.join(__dirname, "consolidate_csv.js");
+    execSync(`node "${consolidateScript}"`, {
+      stdio: "inherit",
+      cwd: __dirname,
+    });
+    console.log("✓ CSV統合完了");
+  } catch (e) {
+    console.error("⚠ CSV統合でエラー発生:", e.message);
+  }
+}
+
 async function main() {
   ensureDir(OUTPUT_DIR);
 
@@ -182,6 +204,21 @@ async function main() {
 
   const page = await context.newPage();
   let isFirstRun = true;
+
+  // Ctrl+C でのプログラム終了時にCSV統合処理を実行
+  let isShuttingDown = false;
+  process.on("SIGINT", async () => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+    console.log("\n\n⚠ プログラムを停止します...");
+    if (keepAliveTimer) {
+      clearInterval(keepAliveTimer);
+    }
+    await consolidateCSV();
+    await browser.close();
+    console.log("✓ 終了しました。");
+    process.exit(0);
+  });
 
   let keepAliveTimer = null;
   function startKeepAlive() {
@@ -312,11 +349,20 @@ async function main() {
 
           const battleTime = formatBattleTime(isoJst);
 
-          const myRR = me?.round_results;
-          const oppRR = opp?.round_results;
+          const myRR = me?.round_results || [];
+          const oppRR = opp?.round_results || [];
 
           const { result } = decideResultAndScore(myRR, oppRR);
-          const myRoundResults = JSON.stringify(myRR || []);
+
+          // 改良版: 負けたラウンドは相手のコードをマイナスで記録
+          const enhancedRR = myRR.map((myCode, index) => {
+            if (myCode === 0 && oppRR[index] !== undefined) {
+              return -oppRR[index]; // 負けた場合は相手のコードをマイナスに
+            }
+            return myCode; // 勝った場合はそのまま
+          });
+
+          const myRoundResults = JSON.stringify(enhancedRR);
 
           const replayId = r?.replay_id || "";
 
@@ -344,19 +390,6 @@ async function main() {
 
       await context.storageState({ path: SESSION_FILE });
       console.log(`✓ セッション更新: ${SESSION_FILE}`);
-
-      // CSV統合処理を実行
-      console.log("\n--- CSV統合処理開始 ---");
-      try {
-        const consolidateScript = path.join(__dirname, "consolidate_csv.js");
-        execSync(`node "${consolidateScript}"`, {
-          stdio: "inherit",
-          cwd: __dirname,
-        });
-        console.log("✓ CSV統合完了\n");
-      } catch (e) {
-        console.error("⚠ CSV統合でエラー発生:", e.message);
-      }
 
       console.log(
         `\n次のスクレイピングまで ${SCRAPE_INTERVAL}分 待機します...`

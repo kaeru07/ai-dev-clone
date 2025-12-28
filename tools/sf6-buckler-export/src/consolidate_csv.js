@@ -52,6 +52,13 @@ function readCSV(filePath) {
     header.forEach((col, i) => {
       row[col] = fields[i] || "";
     });
+    // battle_time_jstの形式を統一（旧形式: YYYY-MM-DD-HH:MM:SS → 新形式: YYYY-MM-DD-HHMM）
+    if (row["battle_time_jst"]) {
+      row["battle_time_jst"] = row["battle_time_jst"].replace(
+        /(\d{4}-\d{2}-\d{2})-(\d{2}):(\d{2})(:\d{2})?/,
+        "$1-$2$3"
+      );
+    }
     return row;
   });
 
@@ -135,6 +142,40 @@ async function main() {
   const allData = new Map(); // key: replay_id + battle_time_jst
   let header = null;
 
+  // 既存の統合CSVがあれば先に読み込む
+  if (fs.existsSync(OUTPUT_FILE)) {
+    console.log(`\n既存の統合CSVを読み込み中: ${path.basename(OUTPUT_FILE)}`);
+    const { header: h, rows } = readCSV(OUTPUT_FILE);
+    if (h) {
+      header = h;
+    }
+    rows.forEach((row) => {
+      const replayId = row["replay_id"] || "";
+      const battleTime = row["battle_time_jst"] || "";
+      const key = `${replayId}_${battleTime}`;
+      allData.set(key, row);
+    });
+    console.log(`  既存データ: ${rows.length} 件`);
+  }
+
+  // 既存の統合CSVがあれば先に読み込む
+  if (fs.existsSync(OUTPUT_FILE)) {
+    console.log(`\n既存の統合CSVを読み込み中: ${path.basename(OUTPUT_FILE)}`);
+    const { header: h, rows } = readCSV(OUTPUT_FILE);
+    if (h) {
+      header = h;
+    }
+    rows.forEach((row) => {
+      const replayId = row["replay_id"] || "";
+      const battleTime = row["battle_time_jst"] || "";
+      const key = `${replayId}_${battleTime}`;
+      allData.set(key, row);
+    });
+    console.log(`  既存データ: ${rows.length} 件`);
+  }
+
+  // 新しいCSVファイルを読み込んで追加
+  console.log(`\n新規CSVファイルを読み込み中...`);
   files.forEach((file, idx) => {
     console.log(`[${idx + 1}/${files.length}] ${path.basename(file)}`);
     const { header: h, rows } = readCSV(file);
@@ -143,14 +184,19 @@ async function main() {
       header = h;
     }
 
+    let addedCount = 0;
     rows.forEach((row) => {
       const replayId = row["replay_id"] || "";
       const battleTime = row["battle_time_jst"] || "";
       const key = `${replayId}_${battleTime}`;
 
-      // 重複チェック：既存データがあれば上書き（最新データを優先）
-      allData.set(key, row);
+      // 重複チェック：新しいデータのみ追加
+      if (!allData.has(key)) {
+        allData.set(key, row);
+        addedCount++;
+      }
     });
+    console.log(`  → 新規追加: ${addedCount} 件`);
   });
 
   console.log(`\n読み込み完了: ${allData.size} 件のユニークなデータ`);

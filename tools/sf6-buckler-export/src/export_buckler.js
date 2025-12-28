@@ -293,11 +293,20 @@ async function main() {
       const battleTime = formatBattleTime(isoJst);
 
       // ★勝敗/スコア：round_results を “コード混在” 前提で判定
-      const myRR = me?.round_results;
-      const oppRR = opp?.round_results;
+      const myRR = me?.round_results || [];
+      const oppRR = opp?.round_results || [];
 
       const { result, round_score } = decideResultAndScore(myRR, oppRR);
-      const myRoundResults = JSON.stringify(myRR || []);
+
+      // 改良版: 負けたラウンドは相手のコードをマイナスで記録
+      const enhancedRR = myRR.map((myCode, index) => {
+        if (myCode === 0 && oppRR[index] !== undefined) {
+          return -oppRR[index]; // 負けた場合は相手のコードをマイナスに
+        }
+        return myCode; // 勝った場合はそのまま
+      });
+
+      const myRoundResults = JSON.stringify(enhancedRR);
 
       const replayId = r?.replay_id || "";
 
