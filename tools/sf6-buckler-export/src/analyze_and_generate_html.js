@@ -5,10 +5,7 @@ const CSV_PATH = path.join(
   __dirname,
   "../exported-csv/battlelog_consolidated.csv"
 );
-const OUTPUT_HTML = path.join(
-  __dirname,
-  "../exported-csv/analysis_report.html"
-);
+const OUTPUT_HTML = path.join(__dirname, "../analysis/analysis_report.html");
 
 // CSV読み込み
 function loadCSV(filePath) {
