@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 
 <head>
@@ -932,6 +932,349 @@
             };
             mrStats.diff = mrStats.end - mrStats.start;
 
+            // 7. MR差の分析
+            const mrDiffData = mrBattles.map((b, i) => {
+                const myMr = parseInt(b.my_mr) || 0;
+                const oppMr = parseInt(b.opp_mr) || 0;
+                return {
+                    x: i + 1,
+                    y: oppMr - myMr // 相手MR - 自分MR
+                };
+            }).filter(d => d.y !== 0);
+
+            // 平均MR差
+            const avgMrDiff = mrDiffData.length > 0
+                ? (mrDiffData.reduce((sum, d) => sum + d.y, 0) / mrDiffData.length).toFixed(1)
+                : '0.0';
+
+            // 8. 連敗数の計算
+            let currentLoseStreak = 0;
+            let maxLoseStreak = 0;
+            battles.forEach(b => {
+                const result = normalizeResult(b.result);
+                if (result === 'LOSE') {
+                    currentLoseStreak++;
+                    maxLoseStreak = Math.max(maxLoseStreak, currentLoseStreak);
+                } else if (result === 'WIN') {
+                    currentLoseStreak = 0;
+                }
+            });
+
+            // 9. 期待勝率とオーバーパフォーム度の計算（Elo式）
+            let totalExpectedWinRate = 0;
+            let validMatchCount = 0;
+            battles.forEach(b => {
+                const myMr = parseInt(b.my_mr) || 0;
+                const oppMr = parseInt(b.opp_mr) || 0;
+                const result = normalizeResult(b.result);
+
+                if (myMr > 0 && oppMr > 0 && (result === 'WIN' || result === 'LOSE')) {
+                    // Elo期待勝率: 1 / (1 + 10^((oppMr - myMr) / 400))
+                    const expectedWinRate = 1 / (1 + Math.pow(10, (oppMr - myMr) / 400));
+                    totalExpectedWinRate += expectedWinRate;
+                    validMatchCount++;
+                }
+            });
+
+            const avgExpectedWinRate = validMatchCount > 0
+                ? ((totalExpectedWinRate / validMatchCount) * 100).toFixed(1)
+                : '0.0';
+            const actualWinRate = parseFloat(winRate);
+            const overPerformance = (actualWinRate - parseFloat(avgExpectedWinRate)).toFixed(1);
+
+            // 9-2. 対キャラ別期待勝率分析
+            const charExpectedStats = {};
+            battles.forEach(b => {
+                const char = state.myCharFilter ? b.opp_character : b.my_character;
+                const myMr = parseInt(b.my_mr) || 0;
+                const oppMr = parseInt(b.opp_mr) || 0;
+                const result = normalizeResult(b.result);
+
+                if (myMr > 0 && oppMr > 0 && (result === 'WIN' || result === 'LOSE')) {
+                    if (!charExpectedStats[char]) {
+                        charExpectedStats[char] = {
+                            totalExpected: 0,
+                            wins: 0,
+                            total: 0
+                        };
+                    }
+                    const expectedWinRate = 1 / (1 + Math.pow(10, (oppMr - myMr) / 400));
+                    charExpectedStats[char].totalExpected += expectedWinRate;
+                    charExpectedStats[char].total++;
+                    if (result === 'WIN') charExpectedStats[char].wins++;
+                }
+            });
+
+            const charExpectedList = Object.entries(charExpectedStats)
+                .filter(([char, stats]) => stats.total >= state.minMatchCount)
+                .map(([char, stats]) => {
+                    const expected = ((stats.totalExpected / stats.total) * 100).toFixed(1);
+                    const actual = ((stats.wins / stats.total) * 100).toFixed(1);
+                    const diff = (parseFloat(actual) - parseFloat(expected)).toFixed(1);
+                    return {
+                        character: char,
+                        expected,
+                        actual,
+                        diff,
+                        total: stats.total
+                    };
+                })
+                .sort((a, b) => parseFloat(b.diff) - parseFloat(a.diff));
+
+            // 9-3. MR帯別期待勝率分析
+            const mrRangeExpectedStats = {};
+            battles.forEach(b => {
+                const myMr = parseInt(b.my_mr) || 0;
+                const oppMr = parseInt(b.opp_mr) || 0;
+                const result = normalizeResult(b.result);
+
+                if (myMr > 0 && oppMr > 0 && (result === 'WIN' || result === 'LOSE')) {
+                    const mrRange = Math.floor(myMr / 50) * 50;
+                    const mrRangeKey = `${mrRange}-${mrRange + 49}`;
+
+                    if (!mrRangeExpectedStats[mrRangeKey]) {
+                        mrRangeExpectedStats[mrRangeKey] = {
+                            totalExpected: 0,
+                            wins: 0,
+                            total: 0,
+                            range: mrRange
+                        };
+                    }
+                    const expectedWinRate = 1 / (1 + Math.pow(10, (oppMr - myMr) / 400));
+                    mrRangeExpectedStats[mrRangeKey].totalExpected += expectedWinRate;
+                    mrRangeExpectedStats[mrRangeKey].total++;
+                    if (result === 'WIN') mrRangeExpectedStats[mrRangeKey].wins++;
+                }
+            });
+
+            const mrRangeExpectedList = Object.entries(mrRangeExpectedStats)
+                .map(([key, stats]) => {
+                    const expected = ((stats.totalExpected / stats.total) * 100).toFixed(1);
+                    const actual = ((stats.wins / stats.total) * 100).toFixed(1);
+                    const diff = (parseFloat(actual) - parseFloat(expected)).toFixed(1);
+                    return {
+                        range: key,
+                        expected,
+                        actual,
+                        diff,
+                        total: stats.total,
+                        mrValue: stats.range
+                    };
+                })
+                .sort((a, b) => b.mrValue - a.mrValue);
+
+            // 10. 先に1R取った試合の勝率
+            let firstRoundWinnerWins = 0;
+            let firstRoundWinnerMatches = 0;
+
+            battles.forEach(b => {
+                try {
+                    const scores = JSON.parse(b.round_score);
+                    const result = normalizeResult(b.result);
+
+                    if (scores.length > 0 && (result === 'WIN' || result === 'LOSE')) {
+                        const firstRound = scores[0];
+                        const iWonFirst = firstRound > 0;
+                        const iWonMatch = result === 'WIN';
+
+                        if (iWonFirst) {
+                            firstRoundWinnerMatches++;
+                            if (iWonMatch) {
+                                firstRoundWinnerWins++;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // スキップ
+                }
+            });
+
+            const firstRoundWinRate = firstRoundWinnerMatches > 0
+                ? ((firstRoundWinnerWins / firstRoundWinnerMatches) * 100).toFixed(1)
+                : '0.0';
+
+            // 11. 0-1からの逆転率（先制負けからの勝率）
+            let comebackWins = 0;
+            let down01Situations = 0;
+
+            battles.forEach(b => {
+                try {
+                    const scores = JSON.parse(b.round_score);
+                    const result = normalizeResult(b.result);
+
+                    // 1ラウンド目を相手が取った（先制負け）かどうかをチェック
+                    if (scores.length > 0 && scores[0] < 0 && (result === 'WIN' || result === 'LOSE')) {
+                        down01Situations++;
+
+                        // その状態から勝利した場合
+                        if (result === 'WIN') {
+                            comebackWins++;
+                        }
+                    }
+                } catch (e) {
+                    // スキップ
+                }
+            });
+
+            const comebackRate = down01Situations > 0
+                ? ((comebackWins / down01Situations) * 100).toFixed(1)
+                : '0.0';
+
+            // 12. 1-1の時の勝率（3R目がある場合）
+            let oneOneWins = 0;
+            let oneOneSituations = 0;
+
+            battles.forEach(b => {
+                try {
+                    const scores = JSON.parse(b.round_score);
+                    const result = normalizeResult(b.result);
+
+                    // 2ラウンド終了時点で1-1かどうかをチェック
+                    if (scores.length >= 2 && (result === 'WIN' || result === 'LOSE')) {
+                        let myRounds = 0;
+                        let oppRounds = 0;
+
+                        // 最初の2ラウンドをカウント
+                        for (let i = 0; i < 2; i++) {
+                            if (scores[i] > 0) myRounds++;
+                            else if (scores[i] < 0) oppRounds++;
+                        }
+
+                        // 1-1の状況
+                        if (myRounds === 1 && oppRounds === 1) {
+                            oneOneSituations++;
+                            if (result === 'WIN') {
+                                oneOneWins++;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // スキップ
+                }
+            });
+
+            const oneOneWinRate = oneOneSituations > 0
+                ? ((oneOneWins / oneOneSituations) * 100).toFixed(1)
+                : '0.0';
+
+            // 13. セッション分割と疲労曲線分析
+            const SESSION_GAP_MS = 30 * 60 * 1000; // 30分
+            const sessions = [];
+            let currentSession = null;
+
+            // battle_time_jstからタイムスタンプを生成する関数
+            function parseJstTimestamp(jstStr) {
+                if (!jstStr) return 0;
+                // '2025-12-30-0939' -> Date object
+                const match = jstStr.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})$/);
+                if (!match) return 0;
+                const [, year, month, day, hour, minute] = match;
+                return new Date(year, month - 1, day, hour, minute).getTime();
+            }
+
+            // 時系列順（古い順）でセッションを構築
+            battles.slice().reverse().forEach(b => {
+                const timestamp = parseInt(b.timestamp) || parseJstTimestamp(b.battle_time_jst) || 0;
+                if (timestamp === 0) return;
+
+                if (!currentSession || timestamp - currentSession.lastTimestamp > SESSION_GAP_MS) {
+                    // 新しいセッション開始
+                    currentSession = {
+                        battles: [],
+                        startTime: timestamp,
+                        lastTimestamp: timestamp
+                    };
+                    sessions.push(currentSession);
+                }
+
+                currentSession.battles.push(b);
+                currentSession.lastTimestamp = timestamp;
+            });
+
+            console.log('セッション分析:', sessions.length, 'セッション検出');
+
+            // 各セッションの統計を計算
+            const sessionStats = sessions.map((session, idx) => {
+                const battles = session.battles;
+                let wins = 0, losses = 0;
+
+                battles.forEach(b => {
+                    const result = normalizeResult(b.result);
+                    if (result === 'WIN') wins++;
+                    else if (result === 'LOSE') losses++;
+                });
+
+                const decided = wins + losses;
+                const winRate = decided > 0 ? ((wins / decided) * 100).toFixed(1) : '0.0';
+
+                // セッション内の疲労曲線（3分割: 前半/中盤/後半）
+                const third = Math.ceil(battles.length / 3);
+                const segments = [
+                    { name: '前半', battles: battles.slice(0, third) },
+                    { name: '中盤', battles: battles.slice(third, third * 2) },
+                    { name: '後半', battles: battles.slice(third * 2) }
+                ];
+
+                const segmentStats = segments.map(seg => {
+                    let segWins = 0, segLosses = 0;
+                    seg.battles.forEach(b => {
+                        const result = normalizeResult(b.result);
+                        if (result === 'WIN') segWins++;
+                        else if (result === 'LOSE') segLosses++;
+                    });
+                    const segDecided = segWins + segLosses;
+                    return {
+                        name: seg.name,
+                        winRate: segDecided > 0 ? ((segWins / segDecided) * 100).toFixed(1) : '0.0',
+                        wins: segWins,
+                        losses: segLosses,
+                        total: seg.battles.length
+                    };
+                });
+
+                return {
+                    sessionId: idx + 1,
+                    battleCount: battles.length,
+                    wins,
+                    losses,
+                    winRate,
+                    startTime: new Date(session.startTime).toLocaleString('ja-JP'),
+                    duration: Math.round((session.lastTimestamp - session.startTime) / 60000), // 分
+                    segmentStats
+                };
+            }).reverse(); // 新しいセッション順に並べ替え
+
+            // 全セッションの疲労曲線データ（前半/中盤/後半の平均勝率）
+            const fatigueData = {
+                early: [],
+                middle: [],
+                late: []
+            };
+
+            sessionStats.forEach(s => {
+                if (s.segmentStats[0].wins + s.segmentStats[0].losses >= 3) {
+                    fatigueData.early.push(parseFloat(s.segmentStats[0].winRate));
+                }
+                if (s.segmentStats[1].wins + s.segmentStats[1].losses >= 3) {
+                    fatigueData.middle.push(parseFloat(s.segmentStats[1].winRate));
+                }
+                if (s.segmentStats[2].wins + s.segmentStats[2].losses >= 3) {
+                    fatigueData.late.push(parseFloat(s.segmentStats[2].winRate));
+                }
+            });
+
+            const avgFatigueData = {
+                early: fatigueData.early.length > 0
+                    ? (fatigueData.early.reduce((a, b) => a + b, 0) / fatigueData.early.length).toFixed(1)
+                    : '0.0',
+                middle: fatigueData.middle.length > 0
+                    ? (fatigueData.middle.reduce((a, b) => a + b, 0) / fatigueData.middle.length).toFixed(1)
+                    : '0.0',
+                late: fatigueData.late.length > 0
+                    ? (fatigueData.late.reduce((a, b) => a + b, 0) / fatigueData.late.length).toFixed(1)
+                    : '0.0'
+            };
+
             // HTML生成
             renderHTML({
                 totalBattles, wins, losses, draws, unknown, winRate,
@@ -939,7 +1282,13 @@
                 mrDiffGroups, mrDiffGroupWinRates, mrRangeList,
                 charWinRates, oppWinRates,
                 winMethods, loseMethods,
-                mrData, mrStats,
+                mrData, mrStats, mrDiffData, avgMrDiff,
+                maxLoseStreak, avgExpectedWinRate, overPerformance,
+                charExpectedList, mrRangeExpectedList,
+                firstRoundWinRate, firstRoundWinnerMatches,
+                comebackRate, down01Situations,
+                oneOneWinRate, oneOneSituations,
+                sessionStats, avgFatigueData,
                 parseErrors, parseErrorRows, detailData,
                 isMyCharFiltered: state.myCharFilter !== null
             });
@@ -956,7 +1305,8 @@
 
             const html = `
         ${charBadge}
-        <div class="stats-grid">
+        <!-- 1段目: 5枚 -->
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 20px;">
           <div class="stat-card">
             <div class="stat-label">Total Battles</div>
             <div class="stat-value">${data.totalBattles}</div>
@@ -967,17 +1317,142 @@
             <small style="opacity: 0.8;">引き分け除外</small>
           </div>
           <div class="stat-card">
+            <div class="stat-label">最大連敗数</div>
+            <div class="stat-value">${data.maxLoseStreak}</div>
+            <small style="opacity: 0.8;">連続敗北記録</small>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">平均MR差</div>
+            <div class="stat-value">${data.avgMrDiff >= 0 ? '+' : ''}${data.avgMrDiff}</div>
+            <small style="opacity: 0.8;">相手MR - 自分MR</small>
+          </div>
+          <div class="stat-card">
             <div class="stat-label">MR推移グラフ</div>
             <div style="height: 100px; margin-top: 10px;">
               <canvas id="miniMrChart"></canvas>
             </div>
           </div>
+        </div>
+
+        <!-- 2段目: 4枚 -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 40px;">
           <div class="stat-card">
-            <div class="stat-label">MR推移</div>
-            <div class="stat-value" style="font-size: 1.5em;">${data.mrStats.start} → ${data.mrStats.end}</div>
-            <small style="opacity: 0.8;">変動: ${data.mrStats.diff >= 0 ? '+' : ''}${data.mrStats.diff}</small>
+            <div class="stat-label">先制勝率</div>
+            <div class="stat-value">${data.firstRoundWinRate}%</div>
+            <small style="opacity: 0.8;">1R先取時の勝率 (${data.firstRoundWinnerMatches}戦)</small>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">0-1逆転率</div>
+            <div class="stat-value">${data.comebackRate}%</div>
+            <small style="opacity: 0.8;">先制負けからの勝率 (${data.down01Situations}回)</small>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">1-1勝率</div>
+            <div class="stat-value">${data.oneOneWinRate}%</div>
+            <small style="opacity: 0.8;">3R目がある時の勝率 (${data.oneOneSituations}回)</small>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">オーバーパフォーム度</div>
+            <div class="stat-value" style="font-size: 1.8em;">${data.overPerformance >= 0 ? '+' : ''}${data.overPerformance}%</div>
+            <small style="opacity: 0.8;">実勝率 - 期待勝率</small>
           </div>
         </div>
+
+        <!-- 期待勝率の詳細 -->
+        <div class="table-container" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+          <div class="chart-title" style="color: white;">🎯 期待勝率分析（Elo式）</div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px;">
+            <div style="text-align: center;">
+              <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">期待勝率</div>
+              <div style="font-size: 2.5em; font-weight: bold;">${data.avgExpectedWinRate}%</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">実勝率</div>
+              <div style="font-size: 2.5em; font-weight: bold;">${data.winRate}%</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">差分</div>
+              <div style="font-size: 2.5em; font-weight: bold; color: ${data.overPerformance >= 0 ? '#90EE90' : '#FFB6C6'};">
+                ${data.overPerformance >= 0 ? '+' : ''}${data.overPerformance}%
+              </div>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 10px; font-size: 0.9em; opacity: 0.9;">
+            ${data.overPerformance >= 0
+                    ? '✨ 期待値を上回るパフォーマンスです！'
+                    : '⚠️ 期待値を下回っています'}
+          </div>
+        </div>
+
+        <!-- 対キャラ別期待勝率分析 -->
+        ${data.charExpectedList && data.charExpectedList.length > 0 ? `
+        <div class="table-container">
+          <div class="chart-title">📊 ${data.isMyCharFiltered ? '対戦相手別' : 'キャラ別'}期待勝率分析</div>
+          <table>
+            <thead>
+              <tr>
+                <th>${data.isMyCharFiltered ? '対戦相手' : 'キャラ'}</th>
+                <th>期待勝率</th>
+                <th>実勝率</th>
+                <th>差分</th>
+                <th>試合数</th>
+                <th>評価</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.charExpectedList.map(c => `
+                <tr>
+                  <td><strong>${c.character}</strong></td>
+                  <td>${c.expected}%</td>
+                  <td><strong>${c.actual}%</strong></td>
+                  <td style="color: ${parseFloat(c.diff) >= 0 ? 'green' : 'red'}; font-weight: bold;">
+                    ${parseFloat(c.diff) >= 0 ? '+' : ''}${c.diff}%
+                  </td>
+                  <td>${c.total}戦</td>
+                  <td style="text-align: center;">
+                    ${parseFloat(c.diff) >= 5 ? '🌟' : parseFloat(c.diff) >= 0 ? '✅' : parseFloat(c.diff) >= -5 ? '📊' : '⚠️'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <!-- MR帯別期待勝率分析 -->
+        ${data.mrRangeExpectedList && data.mrRangeExpectedList.length > 0 ? `
+        <div class="table-container">
+          <div class="chart-title">📈 MR帯別期待勝率分析</div>
+          <table>
+            <thead>
+              <tr>
+                <th>MRレンジ</th>
+                <th>期待勝率</th>
+                <th>実勝率</th>
+                <th>差分</th>
+                <th>試合数</th>
+                <th>評価</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.mrRangeExpectedList.map(r => `
+                <tr>
+                  <td><strong>${r.range}</strong></td>
+                  <td>${r.expected}%</td>
+                  <td><strong>${r.actual}%</strong></td>
+                  <td style="color: ${parseFloat(r.diff) >= 0 ? 'green' : 'red'}; font-weight: bold;">
+                    ${parseFloat(r.diff) >= 0 ? '+' : ''}${r.diff}%
+                  </td>
+                  <td>${r.total}戦</td>
+                  <td style="text-align: center;">
+                    ${parseFloat(r.diff) >= 5 ? '🌟' : parseFloat(r.diff) >= 0 ? '✅' : parseFloat(r.diff) >= -5 ? '📊' : '⚠️'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
 
         <!-- MR差分別勝率 -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
@@ -1122,6 +1597,10 @@
             </div>
             <canvas id="mrChart"></canvas>
           </div>
+          <div class="chart-container">
+            <div class="chart-title">📉 MR差の推移</div>
+            <canvas id="mrDiffChart"></canvas>
+          </div>
         </div>
 
         <div class="table-container">
@@ -1151,6 +1630,95 @@
             </tbody>
           </table>
         </div>
+
+        <!-- セッション分析と疲労曲線 -->
+        ${data.sessionStats && data.sessionStats.length > 0 ? `
+        <div class="table-container" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; margin-bottom: 30px;">
+          <div class="chart-title" style="color: white;">⏱️ セッション分析（30分以上の間隔で分割）</div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px; margin-bottom: 15px;">
+            <div style="text-align: center;">
+              <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">総セッション数</div>
+              <div style="font-size: 2.5em; font-weight: bold;">${data.sessionStats.length}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">平均試合数/セッション</div>
+              <div style="font-size: 2.5em; font-weight: bold;">${(data.sessionStats.reduce((sum, s) => sum + s.battleCount, 0) / data.sessionStats.length).toFixed(1)}</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">平均プレイ時間/セッション</div>
+              <div style="font-size: 2.5em; font-weight: bold;">${(data.sessionStats.reduce((sum, s) => sum + s.duration, 0) / data.sessionStats.length).toFixed(0)}分</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 疲労曲線 -->
+        <div class="table-container" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; margin-bottom: 30px;">
+          <div class="chart-title" style="color: white;">📉 疲労曲線分析（セッション内の前半→後半の勝率変化）</div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px;">
+            <div style="text-align: center; background: rgba(255,255,255,0.15); padding: 20px; border-radius: 10px;">
+              <div style="font-size: 1.1em; opacity: 0.9; margin-bottom: 10px;">🟢 前半</div>
+              <div style="font-size: 3em; font-weight: bold;">${data.avgFatigueData.early}%</div>
+              <div style="font-size: 0.85em; opacity: 0.8; margin-top: 5px;">セッション開始直後</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.15); padding: 20px; border-radius: 10px;">
+              <div style="font-size: 1.1em; opacity: 0.9; margin-bottom: 10px;">🟡 中盤</div>
+              <div style="font-size: 3em; font-weight: bold;">${data.avgFatigueData.middle}%</div>
+              <div style="font-size: 0.85em; opacity: 0.8; margin-top: 5px;">セッション中間</div>
+            </div>
+            <div style="text-align: center; background: rgba(255,255,255,0.15); padding: 20px; border-radius: 10px;">
+              <div style="font-size: 1.1em; opacity: 0.9; margin-bottom: 10px;">🔴 後半</div>
+              <div style="font-size: 3em; font-weight: bold;">${data.avgFatigueData.late}%</div>
+              <div style="font-size: 0.85em; opacity: 0.8; margin-top: 5px;">セッション終盤</div>
+            </div>
+          </div>
+          <div style="text-align: center; margin-top: 10px; padding: 10px; font-size: 0.95em;">
+            ${parseFloat(data.avgFatigueData.late) < parseFloat(data.avgFatigueData.early) - 5
+                        ? '⚠️ 後半に勝率が大きく低下しています。休憩を挟むことを推奨します。'
+                        : parseFloat(data.avgFatigueData.late) < parseFloat(data.avgFatigueData.early)
+                            ? '📊 後半にやや勝率が低下する傾向があります。'
+                            : '✨ セッションを通じて安定したパフォーマンスです！'}
+          </div>
+        </div>
+
+        <!-- セッション詳細テーブル -->
+        <div class="table-container">
+          <div class="chart-title">📋 セッション詳細（直近10セッション）</div>
+          <table>
+            <thead>
+              <tr>
+                <th>セッション</th>
+                <th>開始時刻</th>
+                <th>試合数</th>
+                <th>時間</th>
+                <th>勝率</th>
+                <th>前半勝率</th>
+                <th>中盤勝率</th>
+                <th>後半勝率</th>
+                <th>疲労度</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.sessionStats.slice(0, 10).map(s => {
+                                const fatigueDrop = parseFloat(s.segmentStats[0].winRate) - parseFloat(s.segmentStats[2].winRate);
+                                const fatigueIcon = fatigueDrop > 10 ? '🔴' : fatigueDrop > 5 ? '🟡' : '🟢';
+                                return `
+                  <tr>
+                    <td><strong>#${s.sessionId}</strong></td>
+                    <td style="font-size: 0.85em;">${s.startTime}</td>
+                    <td>${s.battleCount}戦</td>
+                    <td>${s.duration}分</td>
+                    <td><strong>${s.winRate}%</strong></td>
+                    <td>${s.segmentStats[0].winRate}%</td>
+                    <td>${s.segmentStats[1].winRate}%</td>
+                    <td>${s.segmentStats[2].winRate}%</td>
+                    <td style="text-align: center;">${fatigueIcon} ${fatigueDrop > 0 ? '-' : '+'}${Math.abs(fatigueDrop).toFixed(1)}%</td>
+                  </tr>
+                `;
+                            }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
 
         ${data.parseErrors > 0 ? `
         <div class="table-container" style="background: #fff3cd; border-left: 4px solid #ffc107;">
@@ -1285,6 +1853,54 @@
                 options: {
                     responsive: true,
                     scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // MR差の推移チャート
+            charts.mrDiffChart = new Chart(document.getElementById('mrDiffChart'), {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'MR差 (相手 - 自分)',
+                        data: data.mrDiffData,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 2,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Battle #' }
+                        },
+                        y: {
+                            title: { display: true, text: 'MR差' },
+                            grid: {
+                                color: function (context) {
+                                    if (context.tick.value === 0) {
+                                        return 'rgba(0, 0, 0, 0.3)';
+                                    }
+                                    return 'rgba(0, 0, 0, 0.1)';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const value = context.parsed.y;
+                                    const sign = value >= 0 ? '+' : '';
+                                    return `MR差: ${sign}${value}`;
+                                }
+                            }
+                        }
+                    }
                 }
             });
 
