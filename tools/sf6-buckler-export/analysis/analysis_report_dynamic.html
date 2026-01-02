@@ -151,6 +151,55 @@
             font-size: 1.5em;
             color: #667eea;
         }
+
+        /* ツールチップスタイル */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+
+        .stat-label.tooltip-container,
+        .chart-title.tooltip-container {
+            border-bottom: 1px dotted rgba(102, 126, 234, 0.6);
+        }
+
+        .tooltip-container .tooltip-text {
+            visibility: hidden;
+            width: 280px;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            text-align: left;
+            border-radius: 8px;
+            padding: 12px;
+            position: absolute;
+            z-index: 10000;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -140px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.85em;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            white-space: normal;
+        }
+
+        .tooltip-container .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: rgba(0, 0, 0, 0.9) transparent transparent transparent;
+        }
+
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 
@@ -475,11 +524,17 @@
 
         // 並び順編集モーダルを開く
         function openCharOrderEditor() {
-            const uniqueChars = [...new Set(allBattles.map(b => b.my_character).filter(c => c))];
+            // 全キャラクターリスト（データ存在の有無に関わらず）
+            const allCharacters = [
+                'aki', 'blanka', 'cammy', 'chunli', 'cviper', 'deejay', 'dhalsim',
+                'ed', 'elena', 'gouki', 'guile', 'honda', 'jamie', 'jp', 'juri',
+                'ken', 'kimberly', 'lily', 'luke', 'mai', 'manon', 'marisa',
+                'rashid', 'ryu', 'sagat', 'terry', 'vega', 'zangief'
+            ];
 
             // カスタム順序とそれ以外を分離
-            const orderedChars = customCharOrder.filter(c => uniqueChars.includes(c));
-            const unorderedChars = uniqueChars.filter(c => !customCharOrder.includes(c)).sort();
+            const orderedChars = customCharOrder.filter(c => allCharacters.includes(c));
+            const unorderedChars = allCharacters.filter(c => !customCharOrder.includes(c)).sort();
             const allCharsOrdered = [...orderedChars, ...unorderedChars];
 
             const modal = document.createElement('div');
@@ -1308,26 +1363,41 @@
         <!-- 1段目: 5枚 -->
         <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 20px;">
           <div class="stat-card">
-            <div class="stat-label">Total Battles</div>
+            <div class="stat-label tooltip-container">
+              Total Battles
+              <span class="tooltip-text">総試合数。フィルタ適用後の分析対象となるデータ量を示します。</span>
+            </div>
             <div class="stat-value">${data.totalBattles}</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Win Rate</div>
+            <div class="stat-label tooltip-container">
+              Win Rate
+              <span class="tooltip-text">引き分けを除いた勝率。実力を測る基本指標です。50%以上なら成長中、50%未満なら課題あり。</span>
+            </div>
             <div class="stat-value">${data.winRate}%</div>
             <small style="opacity: 0.8;">引き分け除外</small>
           </div>
           <div class="stat-card">
-            <div class="stat-label">最大連敗数</div>
+            <div class="stat-label tooltip-container">
+              最大連敗数
+              <span class="tooltip-text">連続敗北記録。メンタルの乱れや調子の悪化を示す指標。連敗時は休憩を取るのが効果的。</span>
+            </div>
             <div class="stat-value">${data.maxLoseStreak}</div>
             <small style="opacity: 0.8;">連続敗北記録</small>
           </div>
           <div class="stat-card">
-            <div class="stat-label">平均MR差</div>
+            <div class="stat-label tooltip-container">
+              平均MR差
+              <span class="tooltip-text">相手MR - 自分MRの平均。プラスなら格上相手と対戦、マイナスなら格下相手。期待勝率と組み合わせて実力の伸びを判断します。</span>
+            </div>
             <div class="stat-value">${data.avgMrDiff >= 0 ? '+' : ''}${data.avgMrDiff}</div>
             <small style="opacity: 0.8;">相手MR - 自分MR</small>
           </div>
           <div class="stat-card">
-            <div class="stat-label">MR推移グラフ</div>
+            <div class="stat-label tooltip-container">
+              MR推移グラフ
+              <span class="tooltip-text">直近100戦のMR推移。右肩上がりなら成長中、横ばいなら停滞期、下降なら要調整。</span>
+            </div>
             <div style="height: 100px; margin-top: 10px;">
               <canvas id="miniMrChart"></canvas>
             </div>
@@ -1337,22 +1407,34 @@
         <!-- 2段目: 4枚 -->
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 40px;">
           <div class="stat-card">
-            <div class="stat-label">先制勝率</div>
+            <div class="stat-label tooltip-container">
+              先制勝率
+              <span class="tooltip-text">1R先取時の勝率。序盤の強さとリードを守る力を示します。高いほど安定したプレイヤー。</span>
+            </div>
             <div class="stat-value">${data.firstRoundWinRate}%</div>
             <small style="opacity: 0.8;">1R先取時の勝率 (${data.firstRoundWinnerMatches}戦)</small>
           </div>
           <div class="stat-card">
-            <div class="stat-label">0-1逆転率</div>
+            <div class="stat-label tooltip-container">
+              0-1逆転率
+              <span class="tooltip-text">先制負けからの勝率。メンタルの強さと対応力を測る指標。高いほど粘り強いプレイヤー。</span>
+            </div>
             <div class="stat-value">${data.comebackRate}%</div>
             <small style="opacity: 0.8;">先制負けからの勝率 (${data.down01Situations}回)</small>
           </div>
           <div class="stat-card">
-            <div class="stat-label">1-1勝率</div>
+            <div class="stat-label tooltip-container">
+              1-1勝率
+              <span class="tooltip-text">接戦(1-1)時の勝率。クラッチ力を測る重要指標。高いほど勝負所で勝てるプレイヤー。</span>
+            </div>
             <div class="stat-value">${data.oneOneWinRate}%</div>
             <small style="opacity: 0.8;">3R目がある時の勝率 (${data.oneOneSituations}回)</small>
           </div>
           <div class="stat-card">
-            <div class="stat-label">オーバーパフォーム度</div>
+            <div class="stat-label tooltip-container">
+              オーバーパフォーム度
+              <span class="tooltip-text">実勝率 - 期待勝率。プラスなら実力向上中、マイナスなら調整が必要。MR差を考慮した真の実力指標。</span>
+            </div>
             <div class="stat-value" style="font-size: 1.8em;">${data.overPerformance >= 0 ? '+' : ''}${data.overPerformance}%</div>
             <small style="opacity: 0.8;">実勝率 - 期待勝率</small>
           </div>
@@ -1360,7 +1442,10 @@
 
         <!-- 期待勝率の詳細 -->
         <div class="table-container" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-          <div class="chart-title" style="color: white;">🎯 期待勝率分析（Elo式）</div>
+          <div class="chart-title tooltip-container" style="color: white;">
+            🎯 期待勝率分析（Elo式）
+            <span class="tooltip-text">MR差から計算した理論上の勝率。実勝率との差分がプラスなら実力以上の成果を出せています。</span>
+          </div>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px;">
             <div style="text-align: center;">
               <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">期待勝率</div>
@@ -1387,7 +1472,10 @@
         <!-- 対キャラ別期待勝率分析 -->
         ${data.charExpectedList && data.charExpectedList.length > 0 ? `
         <div class="table-container">
-          <div class="chart-title">📊 ${data.isMyCharFiltered ? '対戦相手別' : 'キャラ別'}期待勝率分析</div>
+          <div class="chart-title tooltip-container">
+            📊 ${data.isMyCharFiltered ? '対戦相手別' : 'キャラ別'}期待勝率分析
+            <span class="tooltip-text">キャラクターごとの期待勝率と実勝率の比較。差分が大きいキャラは相性が良い、マイナスは苦手キャラです。</span>
+          </div>
           <table>
             <thead>
               <tr>
@@ -1422,7 +1510,10 @@
         <!-- MR帯別期待勝率分析 -->
         ${data.mrRangeExpectedList && data.mrRangeExpectedList.length > 0 ? `
         <div class="table-container">
-          <div class="chart-title">📈 MR帯別期待勝率分析</div>
+          <div class="chart-title tooltip-container">
+            📈 MR帯別期待勝率分析
+            <span class="tooltip-text">MRレンジごとのパフォーマンス分析。特定のMR帯での強さ・弱さが見えます。</span>
+          </div>
           <table>
             <thead>
               <tr>
@@ -1544,67 +1635,59 @@
           </div>
         </div>
 
-        ${data.mrRangeList.length > 0 ? `
-        <!-- MR帯レンジ別勝率 -->
-        <div class="table-container">
-          <div class="chart-title">📊 MR帯レンジ別勝率</div>
-          <table>
-            <thead>
-              <tr>
-                <th>MRレンジ</th>
-                <th>勝率</th>
-                <th>勝利</th>
-                <th>敗北</th>
-                <th>合計</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.mrRangeList.map(r => `
-                <tr>
-                  <td><strong>${r.range}</strong></td>
-                  <td><strong>${r.winRate}%</strong></td>
-                  <td>${r.wins}</td>
-                  <td>${r.losses}</td>
-                  <td>${r.total}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        ` : ''}
-
         <div class="charts-grid">
           <div class="chart-container">
-            <div class="chart-title">🥊 ${data.isMyCharFiltered ? '対戦相手別勝率' : 'キャラクター別勝率'}</div>
+            <div class="chart-title tooltip-container">
+              🥊 ${data.isMyCharFiltered ? '対戦相手別勝率' : 'キャラクター別勝率'}
+              <span class="tooltip-text">キャラクターごとの勝率。得意・苦手キャラを把握しましょう。</span>
+            </div>
             <canvas id="charChart"></canvas>
           </div>
           <div class="chart-container">
-            <div class="chart-title">🎯 対戦相手別対戦数</div>
+            <div class="chart-title tooltip-container">
+              🎯 対戦相手別対戦数
+              <span class="tooltip-text">キャラクターごとの対戦回数。マッチングの偏りを確認できます。</span>
+            </div>
             <canvas id="oppChart"></canvas>
           </div>
           <div class="chart-container">
-            <div class="chart-title">💥 ラウンド取得方法（勝ち筋）</div>
+            <div class="chart-title tooltip-container">
+              💥 ラウンド取得方法（勝ち筋）
+              <span class="tooltip-text">ラウンドを取った方法の分布。得意な勝ちパターンがわかります。</span>
+            </div>
             <canvas id="winMethodsChart"></canvas>
           </div>
           <div class="chart-container">
-            <div class="chart-title">💀 ラウンド取得方法（負け筋）</div>
+            <div class="chart-title tooltip-container">
+              💀 ラウンド取得方法（負け筋）
+              <span class="tooltip-text">ラウンドを落とした方法の分布。苦手な状況を把握し対策を立てましょう。</span>
+            </div>
             <canvas id="loseMethodsChart"></canvas>
           </div>
           <div class="chart-container">
-            <div class="chart-title">📈 MR推移</div>
+            <div class="chart-title tooltip-container">
+              📈 MR推移
+              <span class="tooltip-text">時間経過によるMRの変化。上昇トレンドか下降トレンドかを確認しましょう。</span>
+            </div>
             <div style="margin-bottom: 10px; font-size: 0.9em; color: #666;">
               最高: ${data.mrStats.max} | 最低: ${data.mrStats.min}
             </div>
             <canvas id="mrChart"></canvas>
           </div>
           <div class="chart-container">
-            <div class="chart-title">📉 MR差の推移</div>
+            <div class="chart-title tooltip-container">
+              📉 MR差の推移
+              <span class="tooltip-text">対戦相手とのMR差の推移。プラス側なら格上相手、マイナス側なら格下相手とのマッチング。</span>
+            </div>
             <canvas id="mrDiffChart"></canvas>
           </div>
         </div>
 
         <div class="table-container">
-          <div class="chart-title">📊 ${data.isMyCharFiltered ? '対戦相手別詳細' : 'キャラクター別詳細'}</div>
+          <div class="chart-title tooltip-container">
+            📊 ${data.isMyCharFiltered ? '対戦相手別詳細' : 'キャラクター別詳細'}
+            <span class="tooltip-text">キャラクターごとの詳細な戦績データ。対戦数・勝率・平均MR差が一覧できます。</span>
+          </div>
           <table>
             <thead>
               <tr>
@@ -1634,7 +1717,10 @@
         <!-- セッション分析と疲労曲線 -->
         ${data.sessionStats && data.sessionStats.length > 0 ? `
         <div class="table-container" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; margin-bottom: 30px;">
-          <div class="chart-title" style="color: white;">⏱️ セッション分析（30分以上の間隔で分割）</div>
+          <div class="chart-title tooltip-container" style="color: white;">
+            ⏱️ セッション分析（30分以上の間隔で分割）
+            <span class="tooltip-text">30分以上の間隔でプレイをセッション分けして分析。長時間プレイの影響を見られます。</span>
+          </div>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 10px; margin-bottom: 15px;">
             <div style="text-align: center;">
               <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">総セッション数</div>
@@ -1653,7 +1739,10 @@
 
         <!-- 疲労曲線 -->
         <div class="table-container" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; margin-bottom: 30px;">
-          <div class="chart-title" style="color: white;">📉 疲労曲線分析（セッション内の前半→後半の勝率変化）</div>
+          <div class="chart-title tooltip-container" style="color: white;">
+            📉 疲労曲線分析（セッション内の前半→後半の勝率変化）
+            <span class="tooltip-text">セッションを前半・中盤・後半に分けて勝率を比較。後半の勝率が下がると疲労の影響あり。</span>
+          </div>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px;">
             <div style="text-align: center; background: rgba(255,255,255,0.15); padding: 20px; border-radius: 10px;">
               <div style="font-size: 1.1em; opacity: 0.9; margin-bottom: 10px;">🟢 前半</div>
@@ -1682,7 +1771,10 @@
 
         <!-- セッション詳細テーブル -->
         <div class="table-container">
-          <div class="chart-title">📋 セッション詳細（直近10セッション）</div>
+          <div class="chart-title tooltip-container">
+            📋 セッション詳細（直近10セッション）
+            <span class="tooltip-text">最近10セッションの詳細データ。続けてプレイすると勝率が下がる傾向があれば休憩が必要。</span>
+          </div>
           <table>
             <thead>
               <tr>
