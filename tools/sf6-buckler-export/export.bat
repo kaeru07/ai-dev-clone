@@ -92,7 +92,7 @@ if %errorlevel% neq 0 (
 )
 
 echo ===============================
-echo Buckler BattleLog -> CSV
+echo Buckler BattleLog -^> CSV
 echo ===============================
 echo.
 echo Node.js バージョン:

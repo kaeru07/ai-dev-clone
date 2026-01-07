@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SF6 Battle Analysis Report (Dynamic)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
         * {
@@ -902,10 +904,10 @@
 
             // 5. ラウンド取得方法（勝ち筋/負け筋に分割）
             const winMethods = {
-                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, victory: 0, normal: 0
+                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0
             };
             const loseMethods = {
-                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, victory: 0, normal: 0
+                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0
             };
             let parseErrors = 0;
             const parseErrorRows = [];
@@ -924,8 +926,8 @@
                         else if (val === 6) methods.sa++;
                         else if (val === 5) methods.od++;
                         else if (val === 2) methods.chip++;
-                        else if (val === 1) methods.victory++;
-                        else methods.normal++;
+                        else if (val === 1) methods.normal++;  // 通常勝ち/負け
+                        // else: 予期しない値は無視
                     });
                 } catch (e) {
                     parseErrors++;
@@ -1641,14 +1643,22 @@
               🥊 ${data.isMyCharFiltered ? '対戦相手別勝率' : 'キャラクター別勝率'}
               <span class="tooltip-text">キャラクターごとの勝率。得意・苦手キャラを把握しましょう。</span>
             </div>
-            <canvas id="charChart"></canvas>
+            <div style="overflow-x: auto; width: 100%;">
+              <div style="min-width: ${Math.max(600, data.charWinRates.length * 50)}px; height: 350px;">
+                <canvas id="charChart"></canvas>
+              </div>
+            </div>
           </div>
           <div class="chart-container">
             <div class="chart-title tooltip-container">
               🎯 対戦相手別対戦数
               <span class="tooltip-text">キャラクターごとの対戦回数。マッチングの偏りを確認できます。</span>
             </div>
-            <canvas id="oppChart"></canvas>
+            <div style="overflow-x: auto; width: 100%;">
+              <div style="min-width: ${Math.max(600, data.oppWinRates.length * 50)}px; height: 350px;">
+                <canvas id="oppChart"></canvas>
+              </div>
+            </div>
           </div>
           <div class="chart-container">
             <div class="chart-title tooltip-container">
@@ -1666,20 +1676,13 @@
           </div>
           <div class="chart-container">
             <div class="chart-title tooltip-container">
-              📈 MR推移
-              <span class="tooltip-text">時間経過によるMRの変化。上昇トレンドか下降トレンドかを確認しましょう。</span>
+              📈 MR推移 & MR差の推移
+              <span class="tooltip-text">MR推移(青・左軸)と対戦相手とのMR差(赤・右軸)を重ねて表示。相関関係を確認しましょう。</span>
             </div>
             <div style="margin-bottom: 10px; font-size: 0.9em; color: #666;">
-              最高: ${data.mrStats.max} | 最低: ${data.mrStats.min}
+              最高MR: ${data.mrStats.max} | 最低MR: ${data.mrStats.min}
             </div>
             <canvas id="mrChart"></canvas>
-          </div>
-          <div class="chart-container">
-            <div class="chart-title tooltip-container">
-              📉 MR差の推移
-              <span class="tooltip-text">対戦相手とのMR差の推移。プラス側なら格上相手、マイナス側なら格下相手とのマッチング。</span>
-            </div>
-            <canvas id="mrDiffChart"></canvas>
           </div>
         </div>
 
@@ -1923,10 +1926,26 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#333',
+                            font: {
+                                weight: 'bold',
+                                size: 12
+                            },
+                            formatter: function (value) {
+                                return value.toFixed(1) + '%';
+                            }
+                        }
+                    },
                     scales: {
                         y: { beginAtZero: true, max: 100 }
                     }
-                }
+                },
+                plugins: [ChartDataLabels]
             });
 
             // 対戦相手別チャート
@@ -1944,51 +1963,86 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#333',
+                            font: {
+                                weight: 'bold',
+                                size: 12
+                            },
+                            formatter: function (value, context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                return value + '回\n(' + percentage + '%)';
+                            }
+                        }
+                    },
                     scales: { y: { beginAtZero: true } }
-                }
+                },
+                plugins: [ChartDataLabels]
             });
 
-            // MR差の推移チャート
-            charts.mrDiffChart = new Chart(document.getElementById('mrDiffChart'), {
+            // MR推移 & MR差の推移を重ねたチャート
+            charts.mrChart = new Chart(document.getElementById('mrChart'), {
                 type: 'line',
                 data: {
-                    datasets: [{
-                        label: 'MR差 (相手 - 自分)',
-                        data: data.mrDiffData,
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                        tension: 0.3,
-                        fill: true,
-                        pointRadius: 2,
-                        pointHoverRadius: 5
-                    }]
+                    datasets: [
+                        {
+                            label: 'MR',
+                            data: data.mrData,
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y',
+                            pointRadius: 2,
+                            pointHoverRadius: 5
+                        },
+                        {
+                            label: 'MR差 (相手 - 自分)',
+                            data: data.mrDiffData,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y1',
+                            pointRadius: 2,
+                            pointHoverRadius: 5
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
                     scales: {
                         x: {
                             type: 'linear',
                             title: { display: true, text: 'Battle #' }
                         },
                         y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: { display: true, text: 'MR' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
                             title: { display: true, text: 'MR差' },
                             grid: {
+                                drawOnChartArea: false,
                                 color: function (context) {
                                     if (context.tick.value === 0) {
-                                        return 'rgba(0, 0, 0, 0.3)';
+                                        return 'rgba(255, 99, 132, 0.3)';
                                     }
-                                    return 'rgba(0, 0, 0, 0.1)';
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    const value = context.parsed.y;
-                                    const sign = value >= 0 ? '+' : '';
-                                    return `MR差: ${sign}${value}`;
+                                    return 'rgba(0, 0, 0, 0.05)';
                                 }
                             }
                         }
@@ -2000,7 +2054,7 @@
             charts.winMethodsChart = new Chart(document.getElementById('winMethodsChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Victory', 'Normal'],
+                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal'],
                     datasets: [{
                         data: [
                             data.winMethods.perfect,
@@ -2008,22 +2062,57 @@
                             data.winMethods.sa,
                             data.winMethods.od,
                             data.winMethods.chip,
-                            data.winMethods.victory,
                             data.winMethods.normal
                         ],
                         backgroundColor: [
                             '#28a745', '#20c997', '#17a2b8', '#007bff',
-                            '#6610f2', '#6c757d', '#343a40'
+                            '#6610f2', '#343a40'
                         ]
                     }]
-                }
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            color: '#fff',
+                            font: {
+                                weight: 'bold',
+                                size: 14
+                            },
+                            textStrokeColor: '#000',
+                            textStrokeWidth: 3,
+                            formatter: function (value, context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                return percentage + '%';
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                    return label + ': ' + value + '回 (' + percentage + '%)';
+                                }
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
             });
 
             // 負け筋ラウンド取得方法チャート
             charts.loseMethodsChart = new Chart(document.getElementById('loseMethodsChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Victory', 'Normal'],
+                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal'],
                     datasets: [{
                         data: [
                             data.loseMethods.perfect,
@@ -2031,15 +2120,50 @@
                             data.loseMethods.sa,
                             data.loseMethods.od,
                             data.loseMethods.chip,
-                            data.loseMethods.victory,
                             data.loseMethods.normal
                         ],
                         backgroundColor: [
                             '#dc3545', '#fd7e14', '#ffc107', '#e83e8c',
-                            '#6c757d', '#343a40', '#6c757d'
+                            '#6c757d', '#343a40'
                         ]
                     }]
-                }
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            color: '#fff',
+                            font: {
+                                weight: 'bold',
+                                size: 14
+                            },
+                            textStrokeColor: '#000',
+                            textStrokeWidth: 3,
+                            formatter: function (value, context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                return percentage + '%';
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                    return label + ': ' + value + '回 (' + percentage + '%)';
+                                }
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'bottom'
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
             });
 
             // ミニMR推移チャート
