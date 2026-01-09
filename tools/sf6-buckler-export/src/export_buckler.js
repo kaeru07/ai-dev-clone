@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SF6 Buckler's Boot Camp battlelog exporter (Ranked)
  * - Scrapes pages 1..10 of /battlelog/rank
  * - Reads __NEXT_DATA__ JSON from each page
@@ -14,14 +14,14 @@ const path = require("path");
 const { chromium } = require("playwright");
 
 // ====== SETTINGS ======
-const SID = "1146188535"; // ←あなたのsid（URLの /profile/{sid}/ に入ってる数値）
+const SID = "1146188535"; // ←あなたのsid（URLの /profile/{sid}/ に入ってる数値）※初回起動時に自動設定されます
 const TOTAL_PAGES = 10;
 const SCRAPE_INTERVAL = 150; // 分（スクレイピング間隔）
 const KEEP_ALIVE_INTERVAL = 60; // 分（セッション延命のページアクセス間隔）
 const SESSION_FILE = path.join(__dirname, "buckler-session.json");
 
 const BASE_URL = `https://www.streetfighter.com/6/buckler/ja-jp/profile/${SID}/battlelog/rank`;
-const OUTPUT_DIR = `C:\\ai-script\\tools\\sf6-buckler-export\\exported-csv`;
+const OUTPUT_DIR = path.join(__dirname, "../exported-csv");
 
 function pad2(n) {
   return String(n).padStart(2, "0");

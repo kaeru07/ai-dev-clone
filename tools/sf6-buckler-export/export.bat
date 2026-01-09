@@ -1,117 +1,79 @@
 @echo off
 cd /d "%~dp0"
-chcp 65001 > nul
+chcp 932 > nul
+setlocal enabledelayedexpansion
 
-REM Node.jsの存在チェック
-where node >nul 2>&1
-if %errorlevel% neq 0 (
+REM ����Z�b�g�A�b�v�`�F�b�N
+set SETUP_COMPLETE_FILE=%~dp0.setup_complete
+set IS_FIRST_SETUP=0
+
+if not exist "%SETUP_COMPLETE_FILE%" (
+    set IS_FIRST_SETUP=1
     echo ===============================
-    echo Node.jsが見つかりません
+    echo ����Z�b�g�A�b�v���J�n���܂�
     echo ===============================
     echo.
-    echo Node.jsをインストールします...
+    
+    echo ���Ȃ���Buckler SID����͂��Ă��������B
+    echo SID�̊m�F���@�F
+    echo 1. Buckler�Ƀ��O�C��: https://www.buckler.gg/login
+    echo 2. �u���E�U�̊J���҃c�[�����J���iF12�L�[�j
+    echo 3. Console�^�u�ňȉ��̃R�}���h�����s:
+    echo    document.cookie.split^(';'^).find^(c =^> c.trim^(^).startsWith^('SID='^)^).split^('='^)[1]
+    echo 4. �\�����ꂽ�������R�s�[���Ă�������
     echo.
+    set /p USER_SID="SID�����: "
     
-    REM Node.jsインストーラーのダウンロード
-    echo [1/3] Node.jsインストーラーをダウンロード中...
-    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $url='https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi'; $output='%TEMP%\nodejs-installer.msi'; Invoke-WebRequest -Uri $url -OutFile $output; if (Test-Path $output) {Write-Host 'ダウンロード完了'} else {Write-Host 'ダウンロード失敗'; exit 1}}"
-    
-    if %errorlevel% neq 0 (
-        echo.
-        echo ダウンロードに失敗しました。
-        echo 手動でインストールしてください: https://nodejs.org/
-        pause
-        exit /b 1
-    )
-    
-    REM Node.jsのインストール実行
-    echo.
-    echo [2/3] Node.jsをインストール中...
-    echo インストールウィザードが開きます。画面の指示に従ってください。
-    echo.
-    msiexec /i "%TEMP%\nodejs-installer.msi" /qb
-    
-    REM インストール完了待機
-    echo.
-    echo [3/3] インストール完了を待っています...
-    timeout /t 10 /nobreak >nul
-    
-    REM 環境変数を再読み込み
-    call refreshenv >nul 2>&1
-    
-    REM 再度チェック
-    where node >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo.
-        echo Node.jsのインストールが完了しませんでした。
-        echo PCを再起動してから、もう一度このバッチファイルを実行してください。
-        echo.
-        echo または、手動でインストールしてください: https://nodejs.org/
+    if "!USER_SID!"=="" (
+        echo �G���[: SID�����͂���Ă��܂���B
         pause
         exit /b 1
     )
     
     echo.
-    echo Node.jsのインストールが完了しました！
-    echo.
+    echo SID��ݒ蒆...
+    powershell -ExecutionPolicy Bypass -File "%~dp0update_sid.ps1" "!USER_SID!" > nul 2>&1
+    if errorlevel 1 (
+        echo �G���[: SID�̐ݒ�Ɏ��s���܂����B
+        pause
+        exit /b 1
+    )
+    echo ? SID�̐ݒ肪�������܂���
     
-    REM npmパッケージのインストール
-    echo 必要なパッケージをインストールします...
+    REM �Z�b�g�A�b�v�����}�[�J�[���쐬
+    echo. > "%SETUP_COMPLETE_FILE%"
+    echo  �Z�b�g�A�b�v���������܂����I
+    echo.
+)
+
+REM node_modules�̊m�F�ƃC���X�g�[��
+if not exist "%~dp0node_modules" (
+    echo node_modules��������܂���B
+    echo npm install�����s���܂�...
+    echo.
     call npm install
-    
-    if %errorlevel% neq 0 (
+    if errorlevel 1 (
         echo.
-        echo パッケージのインストールに失敗しました。
-        echo 次のコマンドを手動で実行してください:
-        echo   cd "%~dp0"
-        echo   npm install
-        echo   npx playwright install chromium
+        echo �G���[: npm install�Ɏ��s���܂����B
+        echo Node.js���C���X�g�[������Ă��邩�m�F���Ă��������B
         pause
         exit /b 1
     )
-    
     echo.
-    echo Playwrightブラウザをインストールします...
-    call npx playwright install chromium
-    
-    if %errorlevel% neq 0 (
-        echo.
-        echo Playwrightのインストールに失敗しました。
-        echo 次のコマンドを手動で実行してください:
-        echo   npx playwright install chromium
-        pause
-        exit /b 1
-    )
-    
+    echo  �p�b�P�[�W�̃C���X�g�[�����������܂����I
     echo.
-    echo ========================================
-    echo セットアップが完了しました！
-    echo ========================================
-    echo.
-    timeout /t 3 /nobreak >nul
 )
 
-echo ===============================
-echo Buckler BattleLog -^> CSV
-echo ===============================
-echo.
-echo Node.js バージョン:
-node --version
-echo.
-echo 1) ブラウザでBucklerにログイン
-echo 2) バトルログ(ランクマ)が見える状態にする
-echo.
-echo 準備ができたら Enter を押してください
-pause > nul
-node "%~dp0src\export_buckler_auto.js"
-
-if errorlevel 1 (
-  echo.
-  echo エラーで停止しました。上のログを確認してください。
-  pause
-  exit /b 1
+REM ���C���X�N���v�g�̎��s
+if !IS_FIRST_SETUP! EQU 1 (
+    echo �S�Ă̐ݒ肪�������܂����B
+    echo ���񂩂�͎����I�ɃX�N���v�g���N�����܂��B
+    echo.
 )
 
+echo �X�N���v�g���N�����Ă��܂�...
+pause
 echo.
-echo 完了。battlelog.csv を確認してください。
+
+node src/export_buckler_auto.js
 pause
