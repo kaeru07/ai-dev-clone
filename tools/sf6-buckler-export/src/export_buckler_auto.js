@@ -391,6 +391,9 @@ async function main() {
       await context.storageState({ path: SESSION_FILE });
       console.log(`✓ セッション更新: ${SESSION_FILE}`);
 
+      // スクレイピング完了後に統合CSVを作成
+      await consolidateCSV();
+
       console.log(
         `\n次のスクレイピングまで ${SCRAPE_INTERVAL}分 待機します...`
       );

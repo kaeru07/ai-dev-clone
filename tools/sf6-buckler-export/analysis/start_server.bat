@@ -74,6 +74,17 @@ cd /d "%~dp0.."
 
 echo 現在のディレクトリ: %CD%
 echo.
+
+REM CSV統合処理を実行（統合CSVが存在しない場合に備えて）
+echo 📊 CSV統合処理を実行中...
+node src/consolidate_csv.js >nul 2>&1
+if %errorlevel% equ 0 (
+    echo ✓ CSV統合完了
+) else (
+    echo ⚠ CSV統合でエラーが発生しましたが続行します
+)
+echo.
+
 echo 🌐 ブラウザを自動的に開きます...
 echo    http://localhost:8000/analysis/analysis_report_dynamic.html
 echo.
