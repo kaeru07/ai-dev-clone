@@ -205,7 +205,7 @@ async function main() {
   const page = await context.newPage();
   let isFirstRun = true;
 
-  // Ctrl+C でのプログラム終了時にCSV統合処理を実行
+  // Ctrl+C でのプログラム終了処理
   let isShuttingDown = false;
   process.on("SIGINT", async () => {
     if (isShuttingDown) return;
@@ -214,7 +214,6 @@ async function main() {
     if (keepAliveTimer) {
       clearInterval(keepAliveTimer);
     }
-    await consolidateCSV();
     await browser.close();
     console.log("✓ 終了しました。");
     process.exit(0);
