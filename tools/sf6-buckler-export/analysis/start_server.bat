@@ -1,124 +1,72 @@
 @echo off
-chcp 65001 >nul
+chcp 932 >nul
 cls
-
-REM Pythonã®å­˜åœ¨ãƒã‚§ãƒƒã‚¯
-where python >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ========================================
-    echo  Python is not installed
-    echo ========================================
-    echo.
-    echo Pythonã‚’ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¾ã™...
-    echo.
-    
-    REM Pythonã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ©ãƒ¼ã®ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰
-    echo [1/3] Pythonã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ©ãƒ¼ã‚’ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ä¸­...
-    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $url='https://www.python.org/ftp/python/3.12.1/python-3.12.1-amd64.exe'; $output='%TEMP%\python-installer.exe'; Invoke-WebRequest -Uri $url -OutFile $output; if (Test-Path $output) {Write-Host 'ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å®Œäº†'} else {Write-Host 'ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰å¤±æ•—'; exit 1}}"
-    
-    if %errorlevel% neq 0 (
-        echo.
-        echo ãƒ€ã‚¦ãƒ³ãƒ­ãƒ¼ãƒ‰ã«å¤±æ•—ã—ã¾ã—ãŸã€‚
-        echo æ‰‹å‹•ã§ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¦ãã ã•ã„: https://www.python.org/
-        pause
-        exit /b 1
-    )
-    
-    REM Pythonã®ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«å®Ÿè¡Œ
-    echo.
-    echo [2/3] Pythonã‚’ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ä¸­...
-    echo ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ãŒå®Œäº†ã™ã‚‹ã¾ã§ãŠå¾…ã¡ãã ã•ã„...
-    echo.
-    "%TEMP%\python-installer.exe" /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
-    
-    REM ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«å®Œäº†å¾…æ©Ÿ
-    echo.
-    echo [3/3] ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«å®Œäº†ã‚’å¾…ã£ã¦ã„ã¾ã™...
-    timeout /t 15 /nobreak >nul
-    
-    REM ç’°å¢ƒå¤‰æ•°ã‚’å†èª­ã¿è¾¼ã¿
-    call refreshenv >nul 2>&1
-    
-    REM å†åº¦ãƒã‚§ãƒƒã‚¯
-    where python >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo.
-        echo Pythonã®ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ãŒå®Œäº†ã—ã¾ã›ã‚“ã§ã—ãŸã€‚
-        echo PCã‚’å†èµ·å‹•ã—ã¦ã‹ã‚‰ã€ã‚‚ã†ä¸€åº¦ã“ã®ãƒãƒƒãƒãƒ•ã‚¡ã‚¤ãƒ«ã‚’å®Ÿè¡Œã—ã¦ãã ã•ã„ã€‚
-        echo.
-        echo ã¾ãŸã¯ã€æ‰‹å‹•ã§ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã—ã¦ãã ã•ã„: https://www.python.org/
-        echo ï¼ˆã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«æ™‚ã«ã€ŒAdd Python to PATHã€ã«ãƒã‚§ãƒƒã‚¯ã‚’å…¥ã‚Œã¦ãã ã•ã„ï¼‰
-        pause
-        exit /b 1
-    )
-    
-    echo.
-    echo ========================================
-    echo  Pythonã®ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ãŒå®Œäº†ã—ã¾ã—ãŸï¼
-    echo ========================================
-    echo.
-    timeout /t 2 /nobreak >nul
-)
 
 echo ========================================
 echo  SF6 Battle Analysis - Local Server
 echo ========================================
 echo.
-echo Python ãƒãƒ¼ã‚¸ãƒ§ãƒ³:
+
+REM Pythonƒ`ƒFƒbƒN
+where python >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ƒGƒ‰[: Python‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ
+    echo https://www.python.org/ ‚©‚çƒCƒ“ƒXƒg[ƒ‹‚µ‚Ä‚­‚¾‚³‚¢
+    pause
+    exit /b 1
+)
+echo Pythonƒo[ƒWƒ‡ƒ“:
 python --version
 echo.
-echo ğŸ“¡ ãƒ­ãƒ¼ã‚«ãƒ«ã‚µãƒ¼ãƒãƒ¼ã‚’èµ·å‹•ã—ã¦ã„ã¾ã™...
-echo.
 
-REM è¦ªãƒ•ã‚©ãƒ«ãƒ€(sf6-buckler-export)ã«ç§»å‹•ã—ã¦ã‚µãƒ¼ãƒãƒ¼èµ·å‹•
+REM ƒfƒBƒŒƒNƒgƒŠˆÚ“®
 cd /d "%~dp0.."
-
-echo ç¾åœ¨ã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª: %CD%
+echo Œ»İ‚ÌƒfƒBƒŒƒNƒgƒŠ: %CD%
 echo.
 
-REM Node.jsã¨CSVçµ±åˆå‡¦ç†ã®ãƒã‚§ãƒƒã‚¯
+REM Node.js‚ÆCSV“‡ˆ—
 where node >nul 2>&1
 if %errorlevel% equ 0 (
     if exist "%~dp0..\node_modules" (
-        echo ğŸ“Š CSVçµ±åˆå‡¦ç†ã‚’å®Ÿè¡Œä¸­...
-        node src/consolidate_csv.js >nul 2>&1
-        if %errorlevel% equ 0 (
-            echo âœ“ CSVçµ±åˆå®Œäº†
-        ) else (
-            echo âš  CSVçµ±åˆã§ã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ã¾ã—ãŸãŒç¶šè¡Œã—ã¾ã™
+        if exist "%~dp0..\src\consolidate_csv.js" (
+            echo CSV“‡ˆ—‚ğÀs’†...
+            chcp 65001 >nul
+            node src\consolidate_csv.js
+            chcp 932 >nul
+            echo CSV“‡‚ªŠ®—¹‚µ‚Ü‚µ‚½
         )
     ) else (
-        echo âš  node_modulesãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚CSVçµ±åˆã‚’ã‚¹ã‚­ãƒƒãƒ—ã—ã¾ã™
-        echo   ï¼ˆexport.batã‚’ä¸€åº¦å®Ÿè¡Œã™ã‚‹ã¨è‡ªå‹•ã§ã‚¤ãƒ³ã‚¹ãƒˆãƒ¼ãƒ«ã•ã‚Œã¾ã™ï¼‰
+        echo ’ˆÓ: node_modules‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñiƒIƒvƒVƒ‡ƒ“j
+        echo export.bat‚ğÀs‚·‚é‚ÆˆË‘¶ŠÖŒW‚ªƒCƒ“ƒXƒg[ƒ‹‚³‚ê‚Ü‚·
     )
 ) else (
-    echo âš  Node.jsãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚CSVçµ±åˆã‚’ã‚¹ã‚­ãƒƒãƒ—ã—ã¾ã™
-    echo   ï¼ˆexport.batã‚’ä¸€åº¦å®Ÿè¡Œã™ã‚‹ã¨Node.jsã®ä¾å­˜é–¢ä¿‚ãŒè§£æ±ºã•ã‚Œã¾ã™ï¼‰
+    echo ’ˆÓ: Node.js‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñiƒIƒvƒVƒ‡ƒ“AƒT[ƒo[‚Í‹N“®‚µ‚Ü‚·j
 )
 echo.
 
-REM ãƒãƒ¼ãƒˆ8000ã®æ—¢å­˜ãƒ—ãƒ­ã‚»ã‚¹ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¦çµ‚äº†
-echo Checking port 8000...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do (
-    echo Terminating process %%a on port 8000...
-    taskkill /F /PID %%a >nul 2>&1
+REM ƒ|[ƒg8000ƒ`ƒFƒbƒN
+netstat -ano | findstr :8000 | findstr LISTENING >nul 2>&1
+if %errorlevel% equ 0 (
+    echo ƒ|[ƒg8000‚ÌŠù‘¶ƒvƒƒZƒX‚ğI—¹’†...
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do (
+        taskkill /F /PID %%a >nul 2>&1
+    )
+    timeout /t 1 /nobreak >nul
 )
+
+echo HTTPƒT[ƒo[‚ğ‹N“®’†...
+echo URL: http://localhost:8000/analysis/analysis_report_dynamic.html
+echo.
+echo ƒT[ƒo[‚ğ’â~‚·‚é‚É‚Í Ctrl+C ‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢
+echo ========================================
 echo.
 
-REM å°‘ã—å¾…æ©Ÿ
-timeout /t 1 /nobreak >nul
-
-echo Starting HTTP server on port 8000...
-echo.
-echo Open browser: http://localhost:8000/analysis/analysis_report_dynamic.html
-echo.
-echo Press Ctrl+C to stop server
-echo.
-echo ----------------------------------------
-echo.
-
-REM ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆãƒ–ãƒ©ã‚¦ã‚¶ã§é–‹ã
 start http://localhost:8000/analysis/analysis_report_dynamic.html
 
-REM ã‚µãƒ¼ãƒãƒ¼èµ·å‹•
 python -m http.server 8000
+if %errorlevel% neq 0 (
+    echo.
+    echo ƒGƒ‰[: ƒT[ƒo[‚ª‹N“®‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½
+    echo ƒGƒ‰[ƒR[ƒh: %errorlevel%
+    pause
+)
