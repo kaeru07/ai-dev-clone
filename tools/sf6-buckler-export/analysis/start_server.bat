@@ -1,5 +1,5 @@
 @echo off
-chcp 65001 >nul
+chcp 932 >nul
 
 REM Pythonの存在チェック
 where python >nul 2>&1
@@ -75,13 +75,24 @@ cd /d "%~dp0.."
 echo 現在のディレクトリ: %CD%
 echo.
 
-REM CSV統合処理を実行（統合CSVが存在しない場合に備えて）
-echo 📊 CSV統合処理を実行中...
-node src/consolidate_csv.js >nul 2>&1
+REM Node.jsとCSV統合処理のチェック
+where node >nul 2>&1
 if %errorlevel% equ 0 (
-    echo ✓ CSV統合完了
+    if exist "%~dp0..\node_modules" (
+        echo 📊 CSV統合処理を実行中...
+        node src/consolidate_csv.js >nul 2>&1
+        if %errorlevel% equ 0 (
+            echo ✓ CSV統合完了
+        ) else (
+            echo ⚠ CSV統合でエラーが発生しましたが続行します
+        )
+    ) else (
+        echo ⚠ node_modulesが見つかりません。CSV統合をスキップします
+        echo   （export.batを一度実行すると自動でインストールされます）
+    )
 ) else (
-    echo ⚠ CSV統合でエラーが発生しましたが続行します
+    echo ⚠ Node.jsが見つかりません。CSV統合をスキップします
+    echo   （export.batを一度実行するとNode.jsの依存関係が解決されます）
 )
 echo.
 
