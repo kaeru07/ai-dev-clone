@@ -1,5 +1,5 @@
 @echo off
-chcp 932 >nul
+chcp 65001 >nul
 
 REM Pythonの存在チェック
 where python >nul 2>&1
