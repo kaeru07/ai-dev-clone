@@ -230,6 +230,23 @@
         // キャラクター表示順（localStorageから読み込み、なければ空配列）
         let customCharOrder = JSON.parse(localStorage.getItem('customCharOrder') || '[]');
 
+        // Elo式の定数とキャラ補正値（データ分析により最適化）
+        const ELO_K_VALUE = 340;
+        const CHARACTER_BONUS = {
+            'gouki': 40.3,
+            'ken': 37.0,
+            'sagat': 19.4,
+            'vega': 14.3,
+            'guile': 10.7,
+            'terry': 9.8,
+            'jamie': -3.3,
+            'jp': -4.4,
+            'marisa': -5.8,
+            'ryu': -16.2,
+            'luke': -31.9,
+            'honda': -69.8
+        };
+
         // Chart.jsのデフォルト設定
         Chart.defaults.responsive = true;
         Chart.defaults.maintainAspectRatio = true;
@@ -366,7 +383,7 @@
             const matchTypes = [...new Set(allBattles.map(b => b.match_type).filter(t => t))].sort();
 
             const filterHTML = `
-                <details style="
+                <details class="filter-container" style="
                     position: sticky;
                     top: 0;
                     z-index: 1000;
@@ -485,12 +502,21 @@
                 </style>
             `;
 
+            // 既存のフィルタメニューがあれば削除
+            const existingFilter = document.querySelector('.filter-container');
+            if (existingFilter) {
+                existingFilter.remove();
+            }
+
             // reload-btnの後に挿入
             const reloadBtn = document.querySelector('.reload-btn');
             reloadBtn.insertAdjacentHTML('afterend', filterHTML);
 
             // 初期状態を反映
             updateFilterButtonStates();
+
+            // スクロールオブザーバーを再設定
+            setupMenuObserver();
         }
 
         // フィルタボタン選択
@@ -659,7 +685,10 @@
             closeCharOrderModal();
 
             // フィルタUIを再構築
-            document.querySelector('details').remove();
+            const existingFilter = document.querySelector('.filter-container');
+            if (existingFilter) {
+                existingFilter.remove();
+            }
             buildFilterUI();
             updateFilterButtonStates();
         }
@@ -672,7 +701,10 @@
                 closeCharOrderModal();
 
                 // フィルタUIを再構築
-                document.querySelector('details').remove();
+                const existingFilter = document.querySelector('.filter-container');
+                if (existingFilter) {
+                    existingFilter.remove();
+                }
                 buildFilterUI();
                 updateFilterButtonStates();
             }
@@ -1017,17 +1049,22 @@
                 }
             });
 
-            // 9. 期待勝率とオーバーパフォーム度の計算（Elo式）
+            // 9. 期待勝率とオーバーパフォーム度の計算（Elo式＋キャラ補正）
             let totalExpectedWinRate = 0;
             let validMatchCount = 0;
             battles.forEach(b => {
                 const myMr = parseInt(b.my_mr) || 0;
                 const oppMr = parseInt(b.opp_mr) || 0;
+                const myChar = b.my_character;
+                const oppChar = b.opp_character;
                 const result = normalizeResult(b.result);
 
                 if (myMr > 0 && oppMr > 0 && (result === 'WIN' || result === 'LOSE')) {
-                    // Elo期待勝率: 1 / (1 + 10^((oppMr - myMr) / 400))
-                    const expectedWinRate = 1 / (1 + Math.pow(10, (oppMr - myMr) / 400));
+                    // キャラ補正込みのElo期待勝率
+                    const myBonus = CHARACTER_BONUS[myChar] || 0;
+                    const oppBonus = CHARACTER_BONUS[oppChar] || 0;
+                    const adjustedDiff = (oppMr + oppBonus) - (myMr + myBonus);
+                    const expectedWinRate = 1 / (1 + Math.pow(10, adjustedDiff / ELO_K_VALUE));
                     totalExpectedWinRate += expectedWinRate;
                     validMatchCount++;
                 }
@@ -1045,6 +1082,8 @@
                 const char = state.myCharFilter ? b.opp_character : b.my_character;
                 const myMr = parseInt(b.my_mr) || 0;
                 const oppMr = parseInt(b.opp_mr) || 0;
+                const myChar = b.my_character;
+                const oppChar = b.opp_character;
                 const result = normalizeResult(b.result);
 
                 if (myMr > 0 && oppMr > 0 && (result === 'WIN' || result === 'LOSE')) {
@@ -1055,7 +1094,11 @@
                             total: 0
                         };
                     }
-                    const expectedWinRate = 1 / (1 + Math.pow(10, (oppMr - myMr) / 400));
+                    // キャラ補正込みの期待勝率
+                    const myBonus = CHARACTER_BONUS[myChar] || 0;
+                    const oppBonus = CHARACTER_BONUS[oppChar] || 0;
+                    const adjustedDiff = (oppMr + oppBonus) - (myMr + myBonus);
+                    const expectedWinRate = 1 / (1 + Math.pow(10, adjustedDiff / ELO_K_VALUE));
                     charExpectedStats[char].totalExpected += expectedWinRate;
                     charExpectedStats[char].total++;
                     if (result === 'WIN') charExpectedStats[char].wins++;
@@ -1254,15 +1297,44 @@
             const sessionStats = sessions.map((session, idx) => {
                 const battles = session.battles;
                 let wins = 0, losses = 0;
+                let mrSum = 0, mrCount = 0;
+
+                // MR帯別の勝率（50刻み）
+                const mrRangeStats = {};
 
                 battles.forEach(b => {
                     const result = normalizeResult(b.result);
                     if (result === 'WIN') wins++;
                     else if (result === 'LOSE') losses++;
+
+                    // MR情報を収集
+                    const myMr = parseInt(b.my_mr) || 0;
+                    if (myMr > 0) {
+                        mrSum += myMr;
+                        mrCount++;
+
+                        // 50刻みのMR帯を計算
+                        const mrBand = Math.floor(myMr / 50) * 50;
+                        if (!mrRangeStats[mrBand]) {
+                            mrRangeStats[mrBand] = { wins: 0, losses: 0 };
+                        }
+                        if (result === 'WIN') mrRangeStats[mrBand].wins++;
+                        else if (result === 'LOSE') mrRangeStats[mrBand].losses++;
+                    }
+                });
+
+                // MR帯別勝率を計算
+                const mrRangeWinRates = {};
+                Object.keys(mrRangeStats).forEach(band => {
+                    const stats = mrRangeStats[band];
+                    const total = stats.wins + stats.losses;
+                    mrRangeWinRates[band] = total >= 3 ? ((stats.wins / total) * 100).toFixed(1) : null;
                 });
 
                 const decided = wins + losses;
                 const winRate = decided > 0 ? ((wins / decided) * 100).toFixed(1) : '0.0';
+                const avgMr = mrCount > 0 ? Math.round(mrSum / mrCount) : 0;
+                const mrRange = avgMr > 0 ? `${Math.floor(avgMr / 100) * 100}-${Math.ceil(avgMr / 100) * 100}` : '-';
 
                 // セッション内の疲労曲線（3分割: 前半/中盤/後半）
                 const third = Math.ceil(battles.length / 3);
@@ -1295,11 +1367,21 @@
                     wins,
                     losses,
                     winRate,
+                    avgMr,
+                    mrRange,
+                    mrRangeWinRates,
                     startTime: new Date(session.startTime).toLocaleString('ja-JP'),
                     duration: Math.round((session.lastTimestamp - session.startTime) / 60000), // 分
                     segmentStats
                 };
             }).reverse(); // 新しいセッション順に並べ替え
+
+            // 全MR帯を収集（表示用）
+            const allMrBands = new Set();
+            sessionStats.forEach(s => {
+                Object.keys(s.mrRangeWinRates).forEach(band => allMrBands.add(parseInt(band)));
+            });
+            const sortedMrBands = Array.from(allMrBands).sort((a, b) => a - b);
 
             // 全セッションの疲労曲線データ（前半/中盤/後半の平均勝率）
             const fatigueData = {
@@ -1345,7 +1427,7 @@
                 firstRoundWinRate, firstRoundWinnerMatches,
                 comebackRate, down01Situations,
                 oneOneWinRate, oneOneSituations,
-                sessionStats, avgFatigueData,
+                sessionStats, avgFatigueData, sortedMrBands,
                 parseErrors, parseErrorRows, detailData,
                 isMyCharFiltered: state.myCharFilter !== null
             });
@@ -1686,37 +1768,6 @@
           </div>
         </div>
 
-        <div class="table-container">
-          <div class="chart-title tooltip-container">
-            📊 ${data.isMyCharFiltered ? '対戦相手別詳細' : 'キャラクター別詳細'}
-            <span class="tooltip-text">キャラクターごとの詳細な戦績データ。対戦数・勝率・平均MR差が一覧できます。</span>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>${data.isMyCharFiltered ? '対戦相手' : 'キャラクター'}</th>
-                <th>勝率</th>
-                <th>勝利</th>
-                <th>敗北</th>
-                <th>引分</th>
-                <th>合計</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.charWinRates.map(c => `
-                <tr>
-                  <td><strong>${c.character}</strong></td>
-                  <td><strong>${c.winRate}%</strong></td>
-                  <td>${c.wins}</td>
-                  <td>${c.losses}</td>
-                  <td>${c.draws}</td>
-                  <td>${c.total}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-
         <!-- セッション分析と疲労曲線 -->
         ${data.sessionStats && data.sessionStats.length > 0 ? `
         <div class="table-container" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; margin-bottom: 30px;">
@@ -1773,10 +1824,10 @@
         </div>
 
         <!-- セッション詳細テーブル -->
-        <div class="table-container">
+        <div class="table-container" style="overflow-x: auto;">
           <div class="chart-title tooltip-container">
-            📋 セッション詳細（直近10セッション）
-            <span class="tooltip-text">最近10セッションの詳細データ。続けてプレイすると勝率が下がる傾向があれば休憩が必要。</span>
+            📋 セッション詳細（直近10セッション）- MR帯別勝率推移
+            <span class="tooltip-text">各セッションでのMR帯別勝率を表示。同じMR帯での成長が時系列で確認できます（3戦以上のデータのみ表示）。</span>
           </div>
           <table>
             <thead>
@@ -1785,17 +1836,12 @@
                 <th>開始時刻</th>
                 <th>試合数</th>
                 <th>時間</th>
-                <th>勝率</th>
-                <th>前半勝率</th>
-                <th>中盤勝率</th>
-                <th>後半勝率</th>
-                <th>疲労度</th>
+                <th>総合勝率</th>
+                ${data.sortedMrBands.map(band => `<th style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">${band}-${band + 49}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
               ${data.sessionStats.slice(0, 10).map(s => {
-                                const fatigueDrop = parseFloat(s.segmentStats[0].winRate) - parseFloat(s.segmentStats[2].winRate);
-                                const fatigueIcon = fatigueDrop > 10 ? '🔴' : fatigueDrop > 5 ? '🟡' : '🟢';
                                 return `
                   <tr>
                     <td><strong>#${s.sessionId}</strong></td>
@@ -1803,10 +1849,15 @@
                     <td>${s.battleCount}戦</td>
                     <td>${s.duration}分</td>
                     <td><strong>${s.winRate}%</strong></td>
-                    <td>${s.segmentStats[0].winRate}%</td>
-                    <td>${s.segmentStats[1].winRate}%</td>
-                    <td>${s.segmentStats[2].winRate}%</td>
-                    <td style="text-align: center;">${fatigueIcon} ${fatigueDrop > 0 ? '-' : '+'}${Math.abs(fatigueDrop).toFixed(1)}%</td>
+                    ${data.sortedMrBands.map(band => {
+                                    const winRate = s.mrRangeWinRates[band];
+                                    if (winRate === null || winRate === undefined) {
+                                        return '<td style="color: #ccc; text-align: center;">-</td>';
+                                    }
+                                    const rate = parseFloat(winRate);
+                                    const color = rate >= 60 ? '#4CAF50' : rate >= 50 ? '#2196F3' : rate >= 40 ? '#FF9800' : '#F44336';
+                                    return `<td style="background: ${color}; color: white; font-weight: bold; text-align: center;">${winRate}%</td>`;
+                                }).join('')}
                   </tr>
                 `;
                             }).join('')}
@@ -2248,10 +2299,16 @@
 
         // MutationObserverを設定する関数
         function setupMenuObserver() {
-            const filterMenu = document.querySelector('details');
-            if (filterMenu && !observer) {
+            // 既存のオブザーバーがあれば切断
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+            }
+
+            const filterMenu = document.querySelector('.filter-container');
+            if (filterMenu) {
                 observer = new MutationObserver(function () {
-                    const filterMenu = document.querySelector('details');
+                    const filterMenu = document.querySelector('.filter-container');
                     if (filterMenu) {
                         if (filterMenu.open) {
                             // メニューが開かれた時点のスクロール位置を記録
@@ -2272,7 +2329,7 @@
         }, 1000);
 
         window.addEventListener('scroll', function () {
-            const filterMenu = document.querySelector('details');
+            const filterMenu = document.querySelector('.filter-container');
 
             // メニューが開いていて、開いた時点のスクロール位置が記録されている場合のみチェック
             if (filterMenu && filterMenu.open && menuOpenScrollY !== null) {
