@@ -1,11 +1,12 @@
 @echo off
 chcp 65001 >nul
+cls
 
 REM Pythonの存在チェック
 where python >nul 2>&1
 if %errorlevel% neq 0 (
     echo ========================================
-    echo  Pythonが見つかりません
+    echo  Python is not installed
     echo ========================================
     echo.
     echo Pythonをインストールします...
@@ -96,26 +97,28 @@ if %errorlevel% equ 0 (
 )
 echo.
 
-echo 🌐 ブラウザを自動的に開きます...
-echo    http://localhost:8000/analysis/analysis_report_dynamic.html
+REM ポート8000の既存プロセスをチェックして終了
+echo Checking port 8000...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do (
+    echo Terminating process %%a on port 8000...
+    taskkill /F /PID %%a >nul 2>&1
+)
 echo.
 
-REM サーバーをバックグラウンドで起動
-start /B python -m http.server 8000
+REM 少し待機
+timeout /t 1 /nobreak >nul
 
-REM サーバーが起動するまで少し待機
-timeout /t 2 /nobreak >nul
-
-REM デフォルトブラウザで開く
-start http://localhost:8000/analysis/analysis_report_dynamic.html
-
+echo Starting HTTP server on port 8000...
 echo.
-echo ✅ ブラウザが開きました！
+echo Open browser: http://localhost:8000/analysis/analysis_report_dynamic.html
 echo.
-echo 💡 サーバーを停止するには Ctrl+C を押してください
+echo Press Ctrl+C to stop server
 echo.
 echo ----------------------------------------
 echo.
 
-REM フォアグラウンドに戻す（Ctrl+Cで停止できるように）
+REM デフォルトブラウザで開く
+start http://localhost:8000/analysis/analysis_report_dynamic.html
+
+REM サーバー起動
 python -m http.server 8000
