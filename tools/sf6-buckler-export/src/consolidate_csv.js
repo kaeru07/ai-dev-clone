@@ -40,7 +40,13 @@ function parseCSVLine(line) {
 }
 
 function readCSV(filePath) {
-  const content = fs.readFileSync(filePath, "utf-8");
+  let content = fs.readFileSync(filePath, "utf-8");
+  // BOM（Byte Order Mark）を除去
+  if (content.charCodeAt(0) === 0xfeff) {
+    content = content.slice(1);
+  }
+  // 改行コードを正規化（CRLF/CR → LF）
+  content = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = content.split("\n").filter((l) => l.trim());
 
   if (lines.length === 0) return { header: null, rows: [] };
@@ -56,8 +62,12 @@ function readCSV(filePath) {
     if (row["battle_time_jst"]) {
       row["battle_time_jst"] = row["battle_time_jst"].replace(
         /(\d{4}-\d{2}-\d{2})-(\d{2}):(\d{2})(:\d{2})?/,
-        "$1-$2$3"
+        "$1-$2$3",
       );
+    }
+    // pageフィールドが空の場合は1をデフォルト値とする
+    if (!row["page"] || row["page"].trim() === "") {
+      row["page"] = "1";
     }
     return row;
   });
@@ -222,11 +232,14 @@ async function main() {
     outputLines.push(line);
   });
 
-  fs.writeFileSync(OUTPUT_FILE, outputLines.join("\n"), "utf-8");
+  // 改行コードをLF（Unix形式）に統一してファイル出力
+  const csvContent = outputLines.join("\n");
+  fs.writeFileSync(OUTPUT_FILE, csvContent, "utf-8");
 
   console.log("====================================");
   console.log(`✓ 統合完了: ${OUTPUT_FILE}`);
   console.log(`  総データ数: ${sortedData.length} 件`);
+  console.log(`  改行コード: LF (Unix形式)`);
   console.log("====================================\n");
 
   // 元ファイルをアーカイブに移動

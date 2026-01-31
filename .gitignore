@@ -1,0 +1,4 @@
+# Gitの管理対象から除外するファイルやディレクトリを指定する
+tools/sf6-buckler-export/exported-csv/archived/
+tools/sf6-buckler-export/exported-csv/battlelog_consolidated.csv
+tools/sf6-buckler-export/src/buckler-session.json

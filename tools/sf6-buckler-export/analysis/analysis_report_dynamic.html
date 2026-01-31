@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>SF6 Battle Analysis Report (Dynamic)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script
@@ -258,8 +261,18 @@
             // timestamp正規化（battle_time_jstがあればそちらを優先）
             if (raw.battle_time_jst && !raw.timestamp) {
                 // JST文字列をtimestampに変換
-                const jstDate = new Date(raw.battle_time_jst);
-                battle.timestamp = jstDate.getTime().toString();
+                // 形式: "2026-01-19-0305" → "2026-01-19T03:05:00"
+                const timeStr = raw.battle_time_jst.trim();
+                const match = timeStr.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})$/);
+                if (match) {
+                    const [_, year, month, day, hour, minute] = match;
+                    const isoStr = `${year}-${month}-${day}T${hour}:${minute}:00`;
+                    const jstDate = new Date(isoStr);
+                    battle.timestamp = jstDate.getTime().toString();
+                } else {
+                    // パースできない場合は0
+                    battle.timestamp = '0';
+                }
             } else if (!raw.timestamp) {
                 battle.timestamp = '0';
             }
@@ -306,7 +319,20 @@
                         Papa.parse(csvText, {
                             header: true,
                             skipEmptyLines: true,
+                            delimitersToGuess: [','],
                             complete: function (results) {
+                                console.log('=== PapaParse 解析結果 ===');
+                                console.log(`解析された行数: ${results.data.length}`);
+                                console.log(`CSVテキストの長さ: ${csvText.length} 文字`);
+                                console.log(`CSVの最初の100文字: ${csvText.substring(0, 100)}`);
+                                console.log(`PapaParseエラー: ${results.errors.length}件`);
+                                if (results.errors.length > 0) {
+                                    console.log('エラーの詳細:', results.errors);
+                                    results.errors.forEach((err, idx) => {
+                                        console.log(`  [${idx}] タイプ: ${err.type}, コード: ${err.code}, メッセージ: ${err.message}, 行: ${err.row}`);
+                                    });
+                                }
+
                                 if (!results.data || results.data.length === 0) {
                                     document.getElementById('content').innerHTML =
                                         '<div class="loading">❌ CSVにデータがありません</div>';
@@ -323,6 +349,16 @@
                                     });
 
                                 console.log(`✓ ${allBattles.length}件のバトルデータを読み込みました`);
+
+                                // デバッグ: 最初の5件のタイムスタンプとbattle_time_jstを確認
+                                console.log('=== 最初の5件のデータ ===');
+                                allBattles.slice(0, 5).forEach((b, i) => {
+                                    console.log(`[${i}] battle_time_jst: ${b.battle_time_jst}, timestamp: ${b.timestamp}, date: ${new Date(parseInt(b.timestamp))}`);
+                                });
+
+                                // デバッグ: 19日のデータ件数を確認
+                                const jan19Count = allBattles.filter(b => b.battle_time_jst && b.battle_time_jst.startsWith('2026-01-19')).length;
+                                console.log(`✓ 2026-01-19のデータ: ${jan19Count}件`);
 
                                 // フィルタUIを生成
                                 buildFilterUI();
@@ -748,20 +784,31 @@
             // フィルタ適用（条件フィルタ → 件数フィルタの順）
             let battles = allBattles;
 
+            console.log('=== analyzeAndRender() 開始 ===');
+            console.log(`全データ件数: ${allBattles.length}`);
+            console.log(`state.maxBattles: ${state.maxBattles}`);
+            console.log(`state.myCharFilter: ${state.myCharFilter}`);
+            console.log(`state.matchTypeFilter: ${state.matchTypeFilter}`);
+
             // 自キャラフィルタ（先に適用）
             if (state.myCharFilter) {
                 battles = battles.filter(b => b.my_character === state.myCharFilter);
+                console.log(`自キャラフィルタ後: ${battles.length}件`);
             }
 
             // 種別フィルタ
             if (state.matchTypeFilter) {
                 battles = battles.filter(b => b.match_type === state.matchTypeFilter);
+                console.log(`種別フィルタ後: ${battles.length}件`);
             }
 
             // 最大戦数フィルタ（条件フィルタ後に適用）
             if (state.maxBattles) {
                 battles = battles.slice(0, state.maxBattles);
+                console.log(`最大戦数フィルタ後: ${battles.length}件`);
             }
+
+            console.log(`最終的に分析するデータ: ${battles.length}件`);
 
             // 既存のチャートを破棄
             Object.values(charts).forEach(chart => chart.destroy());
