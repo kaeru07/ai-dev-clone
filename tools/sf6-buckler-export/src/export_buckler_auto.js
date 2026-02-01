@@ -222,16 +222,19 @@ async function main() {
   let keepAliveTimer = null;
   function startKeepAlive() {
     if (keepAliveTimer) clearInterval(keepAliveTimer);
-    keepAliveTimer = setInterval(async () => {
-      try {
-        console.log(`[KeepAlive] ページアクセスしてセッション延命中...`);
-        await page.goto(`${BASE_URL}?page=1`, {
-          waitUntil: "domcontentloaded",
-        });
-      } catch (e) {
-        console.error("[KeepAlive] エラー:", e.message);
-      }
-    }, KEEP_ALIVE_INTERVAL * 60 * 1000);
+    keepAliveTimer = setInterval(
+      async () => {
+        try {
+          console.log(`[KeepAlive] ページアクセスしてセッション延命中...`);
+          await page.goto(`${BASE_URL}?page=1`, {
+            waitUntil: "domcontentloaded",
+          });
+        } catch (e) {
+          console.error("[KeepAlive] エラー:", e.message);
+        }
+      },
+      KEEP_ALIVE_INTERVAL * 60 * 1000,
+    );
   }
 
   console.log("====================================");
@@ -266,7 +269,7 @@ async function main() {
 
       if (!next1) {
         console.error(
-          "⚠️ __NEXT_DATA__ が取れません。ログイン切れの可能性があります。"
+          "⚠️ __NEXT_DATA__ が取れません。ログイン切れの可能性があります。",
         );
         process.stdout.write("\x07");
         console.log("ブラウザで再ログインして Enter を押してください...");
@@ -281,7 +284,7 @@ async function main() {
         next1 = await getNextData(page);
         if (!next1) {
           console.error(
-            "ERROR: 再試行しても __NEXT_DATA__ が取れません。次のループへスキップします。"
+            "ERROR: 再試行しても __NEXT_DATA__ が取れません。次のループへスキップします。",
           );
           await sleep(SCRAPE_INTERVAL * 60 * 1000);
           continue;
@@ -333,6 +336,11 @@ async function main() {
 
           const myMr = me?.master_rating ?? "";
           const oppMr = opp?.master_rating ?? "";
+
+          // MRが0のデータをスキップ
+          if (myMr === 0 || oppMr === 0) {
+            continue;
+          }
 
           let isoJst = "";
           if (typeof r?.uploaded_at === "number") {
@@ -394,10 +402,10 @@ async function main() {
       await consolidateCSV();
 
       console.log(
-        `\n次のスクレイピングまで ${SCRAPE_INTERVAL}分 待機します...`
+        `\n次のスクレイピングまで ${SCRAPE_INTERVAL}分 待機します...`,
       );
       console.log(
-        `(セッション延命: ${KEEP_ALIVE_INTERVAL}分ごとにページアクセス)`
+        `(セッション延命: ${KEEP_ALIVE_INTERVAL}分ごとにページアクセス)`,
       );
 
       startKeepAlive();

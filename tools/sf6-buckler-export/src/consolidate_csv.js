@@ -163,22 +163,14 @@ async function main() {
       const replayId = row["replay_id"] || "";
       const battleTime = row["battle_time_jst"] || "";
       const key = `${replayId}_${battleTime}`;
-      allData.set(key, row);
-    });
-    console.log(`  既存データ: ${rows.length} 件`);
-  }
 
-  // 既存の統合CSVがあれば先に読み込む
-  if (fs.existsSync(OUTPUT_FILE)) {
-    console.log(`\n既存の統合CSVを読み込み中: ${path.basename(OUTPUT_FILE)}`);
-    const { header: h, rows } = readCSV(OUTPUT_FILE);
-    if (h) {
-      header = h;
-    }
-    rows.forEach((row) => {
-      const replayId = row["replay_id"] || "";
-      const battleTime = row["battle_time_jst"] || "";
-      const key = `${replayId}_${battleTime}`;
+      // MRが0のデータをスキップ
+      const myMr = parseInt(row["my_mr"] || "0", 10);
+      const oppMr = parseInt(row["opp_mr"] || "0", 10);
+      if (myMr === 0 || oppMr === 0) {
+        return;
+      }
+
       allData.set(key, row);
     });
     console.log(`  既存データ: ${rows.length} 件`);
@@ -199,6 +191,13 @@ async function main() {
       const replayId = row["replay_id"] || "";
       const battleTime = row["battle_time_jst"] || "";
       const key = `${replayId}_${battleTime}`;
+
+      // MRが0のデータをスキップ
+      const myMr = parseInt(row["my_mr"] || "0", 10);
+      const oppMr = parseInt(row["opp_mr"] || "0", 10);
+      if (myMr === 0 || oppMr === 0) {
+        return;
+      }
 
       // 重複チェック：新しいデータのみ追加
       if (!allData.has(key)) {

@@ -272,6 +272,11 @@ async function main() {
       const myMr = me?.master_rating ?? "";
       const oppMr = opp?.master_rating ?? "";
 
+      // MRが0のデータをスキップ
+      if (myMr === 0 || oppMr === 0) {
+        continue;
+      }
+
       // ★時間：まず uploaded_at（epoch秒）をJST ISO化してから整形
       // （NextDataに battle_at / played_at があるならそっち優先に差し替え可能）
       let isoJst = "";
