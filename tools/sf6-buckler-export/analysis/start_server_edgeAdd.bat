@@ -7,71 +7,72 @@ echo  SF6 Battle Analysis - Local Server
 echo ========================================
 echo.
 
-REM Pythonï¿½`ï¿½Fï¿½bï¿½N
+REM Pythonƒ`ƒFƒbƒN
 where python >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ï¿½Gï¿½ï¿½ï¿½[: Pythonï¿½ï¿½ï¿½ï¿½ï¿½Â‚ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½ï¿½
-    echo https://www.python.org/ ï¿½ï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½Xï¿½gï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    echo ƒGƒ‰[: Python‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñ
+    echo https://www.python.org/ ‚©‚çƒCƒ“ƒXƒg[ƒ‹‚µ‚Ä‚­‚¾‚³‚¢
     pause
     exit /b 1
 )
-echo Pythonï¿½oï¿½[ï¿½Wï¿½ï¿½ï¿½ï¿½:
+echo Pythonƒo[ƒWƒ‡ƒ“:
 python --version
 echo.
 
-REM ï¿½fï¿½Bï¿½ï¿½ï¿½Nï¿½gï¿½ï¿½ï¿½Ú“ï¿½
+REM ƒfƒBƒŒƒNƒgƒŠˆÚ“®
 cd /d "%~dp0.."
-echo ï¿½ï¿½ï¿½İ‚Ìƒfï¿½Bï¿½ï¿½ï¿½Nï¿½gï¿½ï¿½: %CD%
+echo Œ»İ‚ÌƒfƒBƒŒƒNƒgƒŠ: %CD%
 echo.
 
-REM Node.jsï¿½ï¿½CSVï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+REM Node.js‚ÆCSV“‡ˆ—
 where node >nul 2>&1
 if %errorlevel% equ 0 (
     if exist "%~dp0..\node_modules" (
         if exist "%~dp0..\src\consolidate_csv.js" (
-            echo CSVï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½sï¿½ï¿½...
+            echo CSV“‡ˆ—‚ğÀs’†...
             chcp 65001 >nul
             node src\consolidate_csv.js
             chcp 932 >nul
-            echo CSVï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½ï¿½
+            echo CSV“‡‚ªŠ®—¹‚µ‚Ü‚µ‚½
         )
     ) else (
-        echo ï¿½ï¿½ï¿½ï¿½: node_modulesï¿½ï¿½ï¿½ï¿½ï¿½Â‚ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½ï¿½iï¿½Iï¿½vï¿½Vï¿½ï¿½ï¿½ï¿½ï¿½j
-        echo export.batï¿½ï¿½ï¿½ï¿½ï¿½sï¿½ï¿½ï¿½ï¿½ÆˆË‘ï¿½ï¿½ÖŒWï¿½ï¿½ï¿½Cï¿½ï¿½ï¿½Xï¿½gï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü‚ï¿½
+        echo ’ˆÓ: node_modules‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñiƒIƒvƒVƒ‡ƒ“j
+        echo export.bat‚ğÀs‚·‚é‚ÆˆË‘¶ŠÖŒW‚ªƒCƒ“ƒXƒg[ƒ‹‚³‚ê‚Ü‚·
     )
 ) else (
-    echo ï¿½ï¿½ï¿½ï¿½: Node.jsï¿½ï¿½ï¿½ï¿½ï¿½Â‚ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½ï¿½iï¿½Iï¿½vï¿½Vï¿½ï¿½ï¿½ï¿½ï¿½Aï¿½Tï¿½[ï¿½oï¿½[ï¿½Í‹Nï¿½ï¿½ï¿½ï¿½ï¿½Ü‚ï¿½ï¿½j
+    echo ’ˆÓ: Node.js‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñiƒIƒvƒVƒ‡ƒ“AƒT[ƒo[‚Í‹N“®‚µ‚Ü‚·j
 )
 echo.
 
-REM ï¿½|ï¿½[ï¿½g8000ï¿½`ï¿½Fï¿½bï¿½N
+REM ƒ|[ƒg8000ƒ`ƒFƒbƒN
 netstat -ano | findstr :8000 | findstr LISTENING >nul 2>&1
 if %errorlevel% equ 0 (
-    echo ï¿½|ï¿½[ï¿½g8000ï¿½ÌŠï¿½ï¿½ï¿½ï¿½vï¿½ï¿½ï¿½Zï¿½Xï¿½ï¿½ï¿½Iï¿½ï¿½ï¿½ï¿½...
+    echo ƒ|[ƒg8000‚ÌŠù‘¶ƒvƒƒZƒX‚ğI—¹’†...
     for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000 ^| findstr LISTENING') do (
         taskkill /F /PID %%a >nul 2>&1
     )
     timeout /t 1 /nobreak >nul
 )
 
-echo HTTPï¿½Tï¿½[ï¿½oï¿½[ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½ï¿½...
+echo HTTPƒT[ƒo[‚ğ‹N“®’†...
 echo URL: http://localhost:8000/analysis/analysis_report_dynamic.html
 echo.
-echo ï¿½Tï¿½[ï¿½oï¿½[ï¿½ï¿½ï¿½~ï¿½ï¿½ï¿½ï¿½É‚ï¿½ Ctrl+C ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä‚ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+echo ƒT[ƒo[‚ğ’â~‚·‚é‚É‚Í Ctrl+C ‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢
 echo ========================================
 echo.
 
 if defined CHROME (
-    REM Chrome ã§ç›´æ¥èµ·å‹•
+    REM Chrome ‚Å’¼Ú‹N“®
     start "" "%CHROME%" "http://localhost:8000/analysis/analysis_report_dynamic.html"
 ) else (
-    REM Chrome ãŒãªã‘ã‚Œã° iexplore.exe ã§èµ·å‹•
+    REM Chrome ‚ª‚È‚¯‚ê‚Î iexplore.exe ‚Å‹N“®
     start "" "iexplore.exe" "http://localhost:8000/analysis/analysis_report_dynamic.html"
 )
+
 python -m http.server 8000
 if %errorlevel% neq 0 (
     echo.
-    echo ï¿½Gï¿½ï¿½ï¿½[: ï¿½Tï¿½[ï¿½oï¿½[ï¿½ï¿½ï¿½Nï¿½ï¿½ï¿½Å‚ï¿½ï¿½Ü‚ï¿½ï¿½ï¿½Å‚ï¿½ï¿½ï¿½
-    echo ï¿½Gï¿½ï¿½ï¿½[ï¿½Rï¿½[ï¿½h: %errorlevel%
+    echo ƒGƒ‰[: ƒT[ƒo[‚ª‹N“®‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½
+    echo ƒGƒ‰[ƒR[ƒh: %errorlevel%
     pause
 )
