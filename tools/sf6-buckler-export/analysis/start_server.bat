@@ -61,7 +61,13 @@ echo サーバーを停止するには Ctrl+C を押してください
 echo ========================================
 echo.
 
-start http://localhost:8000/analysis/analysis_report_dynamic.html
+if defined CHROME (
+    REM Chrome で直接起動
+    start "" "%CHROME%" "http://localhost:8000/analysis/analysis_report_dynamic.html"
+) else (
+    REM Chrome がなければ iexplore.exe で起動
+    start "" "iexplore.exe" "http://localhost:8000/analysis/analysis_report_dynamic.html"
+)
 
 python -m http.server 8000
 if %errorlevel% neq 0 (
