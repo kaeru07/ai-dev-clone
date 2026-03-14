@@ -49,6 +49,39 @@
             border-bottom-color: #495057;
         }
 
+        body.dark-mode .filter-btn {
+            background: #343b4d;
+            border-color: #4f5d78;
+            color: #f1f3f5;
+        }
+
+        body.dark-mode .filter-btn:hover {
+            background: #3f4860;
+            border-color: #7c8ec7;
+        }
+
+        body.dark-mode #filterMenuContent label,
+        body.dark-mode #filterMenuContent select,
+        body.dark-mode #filterMenuContent input,
+        body.dark-mode #filterMenuContent option,
+        body.dark-mode .char-name {
+            color: #f1f3f5 !important;
+        }
+
+        body.dark-mode #filterMenuContent select,
+        body.dark-mode #filterMenuContent input {
+            background: #232a3a;
+            border-color: #4f5d78;
+        }
+
+        .top-action-bar {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -236,9 +269,9 @@
         <h1 id="pageTitle" style="display: flex; align-items: center; justify-content: center; gap: 15px;">🎮 SF6 Battle
             Analysis Report</h1>
 
-        <div style="display:flex; gap:12px; justify-content:center; margin-bottom:20px;">
-        <button class="reload-btn" style="margin:0;" onclick="loadAndAnalyze()">🔄 データを再読み込み</button>
+        <div id="topActionBar" class="top-action-bar">
         <button id="darkModeToggleBtn" class="reload-btn" style="margin:0; background: linear-gradient(135deg, #495057 0%, #212529 100%);" onclick="toggleDarkMode()">🌙 ダークモード切替</button>
+        <button class="reload-btn" style="margin:0;" onclick="loadAndAnalyze()">🔄 データを再読み込み</button>
         </div>
 
         <div id="content">
@@ -284,9 +317,70 @@
             return `<div style="display: inline-flex; flex-direction: column; align-items: center; gap: 4px; min-width: 68px;">
                 <img src="../src/icon/${icon}.png" alt="${char}" style="width: 44px; height: 44px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
                 <span style="display: none; font-size: 0.75em;">${name}</span>
-                <span style="font-size: 0.72em; color: #444; font-weight: 600; line-height: 1; text-align: center;">${name}</span>
+                <span class="char-name" style="font-size: 0.86em; color: #444; font-weight: 700; line-height: 1.2; text-align: center;">${name}</span>
             </div>`;
         }
+
+        function getChartTextColor() {
+            return document.body.classList.contains('dark-mode') ? '#e9ecef' : '#333';
+        }
+
+
+        function normalizeCharacterKey(char) {
+            if (!char) return '';
+            const lowered = String(char).toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (CHAR_NAME_MAP[lowered]) return lowered;
+            const aliases = {
+                ehonda: 'honda',
+                cviper: 'cviper',
+                chunli: 'chunli',
+                deejay: 'deejay'
+            };
+            return aliases[lowered] || lowered;
+        }
+
+        function getCharacterIconPath(char) {
+            const normalized = normalizeCharacterKey(char);
+            if (!normalized) return null;
+            const icon = ICON_FILE_MAP[normalized] || normalized.toUpperCase();
+            return `../src/icon/${icon}.png`;
+        }
+
+        const characterIconImageCache = {};
+        const characterIconPlugin = {
+            id: 'characterIconPlugin',
+            afterDraw(chart, args, pluginOptions) {
+                if (!pluginOptions || !pluginOptions.enabled) return;
+                const xScale = chart.scales.x;
+                if (!xScale || !chart.data?.labels?.length) return;
+
+                const { ctx } = chart;
+                const size = pluginOptions.size || 22;
+                const offsetY = pluginOptions.offsetY || 16;
+
+                chart.data.labels.forEach((label, idx) => {
+                    const iconPath = getCharacterIconPath(label);
+                    if (!iconPath) return;
+
+                    let img = characterIconImageCache[iconPath];
+                    if (!img) {
+                        img = new Image();
+                        img.src = iconPath;
+                        img.onload = () => chart.draw();
+                        characterIconImageCache[iconPath] = img;
+                    }
+                    if (!img.complete) return;
+
+                    const x = xScale.getPixelForTick(idx) - (size / 2);
+                    const y = xScale.bottom + offsetY;
+                    try {
+                        ctx.drawImage(img, x, y, size, size);
+                    } catch (e) {
+                        // noop: icon draw failure should not break chart rendering
+                    }
+                });
+            }
+        };
 
         function loadFilterState() {
             try {
@@ -315,6 +409,9 @@
             document.body.classList.toggle('dark-mode');
             localStorage.setItem('analysisDarkMode', document.body.classList.contains('dark-mode') ? '1' : '0');
             updateDarkModeButtonLabel();
+            if (allBattles.length > 0) {
+                updateFilters();
+            }
         }
 
         if (localStorage.getItem('analysisDarkMode') === '1') {
@@ -636,9 +733,9 @@
                 existingFilter.remove();
             }
 
-            // reload-btnの後に挿入
-            const reloadBtn = document.querySelector('.reload-btn');
-            reloadBtn.insertAdjacentHTML('afterend', filterHTML);
+            // topActionBarの後に挿入（操作ボタンと分離してレイアウト崩れを防止）
+            const topActionBar = document.getElementById('topActionBar');
+            topActionBar.insertAdjacentHTML('afterend', filterHTML);
 
             // 初期状態を反映
             document.getElementById('filterMatchType').value = state.matchTypeFilter || '';
@@ -1918,7 +2015,7 @@
               📈 MR推移 & MR差の推移
               <span class="tooltip-text">MR推移(青・左軸)と対戦相手とのMR差(赤・右軸)を重ねて表示。相関関係を確認しましょう。</span>
             </div>
-            <div style="margin-bottom: 10px; font-size: 0.9em; color: #666;">
+            <div style="margin-bottom: 10px; font-size: 0.9em; color: ${document.body.classList.contains('dark-mode') ? '#d0d4da' : '#666'};">
               最高MR: ${data.mrStats.max} | 最低MR: ${data.mrStats.min}
             </div>
             <canvas id="mrChart"></canvas>
@@ -2111,6 +2208,10 @@
 
         // チャート描画
         function renderCharts(data) {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            Chart.defaults.color = getChartTextColor();
+            Chart.defaults.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
+
             // 既存のチャートを全て破棄
             Object.keys(charts).forEach(key => {
                 if (charts[key]) {
@@ -2135,11 +2236,12 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: { padding: { bottom: 34 } },
                     plugins: {
                         datalabels: {
                             anchor: 'end',
                             align: 'top',
-                            color: '#333',
+                            color: getChartTextColor(),
                             font: {
                                 weight: 'bold',
                                 size: 12
@@ -2147,13 +2249,15 @@
                             formatter: function (value) {
                                 return value.toFixed(1) + '%';
                             }
-                        }
+                        },
+                        charIcons: { enabled: true, size: 24, offsetY: 10 }
                     },
                     scales: {
+                        x: { ticks: { padding: 30 } },
                         y: { beginAtZero: true, max: 100 }
                     }
                 },
-                plugins: [ChartDataLabels]
+                plugins: [ChartDataLabels, characterIconPlugin]
             });
 
             // 対戦相手別チャート
@@ -2172,11 +2276,12 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: { padding: { bottom: 34 } },
                     plugins: {
                         datalabels: {
                             anchor: 'end',
                             align: 'top',
-                            color: '#333',
+                            color: getChartTextColor(),
                             font: {
                                 weight: 'bold',
                                 size: 12
@@ -2186,11 +2291,15 @@
                                 const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
                                 return value + '回\n(' + percentage + '%)';
                             }
-                        }
+                        },
+                        charIcons: { enabled: true, size: 24, offsetY: 10 }
                     },
-                    scales: { y: { beginAtZero: true } }
+                    scales: {
+                        x: { ticks: { padding: 30 } },
+                        y: { beginAtZero: true }
+                    }
                 },
-                plugins: [ChartDataLabels]
+                plugins: [ChartDataLabels, characterIconPlugin]
             });
 
             // MR推移 & MR差の推移を重ねたチャート
