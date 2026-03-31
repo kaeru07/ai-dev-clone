@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿﻿<!DOCTYPE html>
 <html lang="ja">
 
 <head>
@@ -24,6 +24,62 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
             color: #333;
+            --profile-color: #333;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        body.dark-mode {
+            background: linear-gradient(135deg, #1c1f2b 0%, #11131a 100%);
+            color: #f1f3f5;
+            --profile-color: #f1f3f5;
+        }
+
+        body.dark-mode .container {
+            background: #1f2430;
+        }
+
+        body.dark-mode .chart-container,
+        body.dark-mode .table-container,
+        body.dark-mode #filterMenuContent {
+            background: #2b3140 !important;
+            color: #f1f3f5;
+        }
+
+        body.dark-mode td {
+            border-bottom-color: #495057;
+        }
+
+        body.dark-mode .filter-btn {
+            background: #343b4d;
+            border-color: #4f5d78;
+            color: #f1f3f5;
+        }
+
+        body.dark-mode .filter-btn:hover {
+            background: #3f4860;
+            border-color: #7c8ec7;
+        }
+
+        body.dark-mode #filterMenuContent label,
+        body.dark-mode #filterMenuContent select,
+        body.dark-mode #filterMenuContent input,
+        body.dark-mode #filterMenuContent option,
+        body.dark-mode .char-name {
+            color: #f1f3f5 !important;
+        }
+
+        body.dark-mode #filterMenuContent select,
+        body.dark-mode #filterMenuContent input {
+            background: #232a3a;
+            border-color: #4f5d78;
+        }
+
+        .top-action-bar {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
         .container {
@@ -213,7 +269,10 @@
         <h1 id="pageTitle" style="display: flex; align-items: center; justify-content: center; gap: 15px;">🎮 SF6 Battle
             Analysis Report</h1>
 
-        <button class="reload-btn" onclick="loadAndAnalyze()">🔄 データを再読み込み</button>
+        <div id="topActionBar" class="top-action-bar">
+        <button id="darkModeToggleBtn" class="reload-btn" style="margin:0; background: linear-gradient(135deg, #495057 0%, #212529 100%);" onclick="toggleDarkMode()">🌙 ダークモード切替</button>
+        <button class="reload-btn" style="margin:0;" onclick="loadAndAnalyze()">🔄 データを再読み込み</button>
+        </div>
 
         <div id="content">
             <div class="loading">📊 データを読み込み中...</div>
@@ -223,6 +282,19 @@
     <script>
         let charts = {};
         let allBattles = []; // 全データ保持（正規化済み）
+        const FILTER_STATE_KEY = 'analysisFilterState';
+        const CHAR_NAME_MAP = {
+            aki: 'A.K.I.', blanka: 'Blanka', cammy: 'Cammy', chunli: 'Chun-Li', cviper: 'C.Viper',
+            deejay: 'Dee Jay', dhalsim: 'Dhalsim', ed: 'Ed', elena: 'Elena', gouki: 'Gouki',
+            guile: 'Guile', honda: 'E.Honda', jamie: 'Jamie', jp: 'JP', juri: 'Juri', ken: 'Ken',
+            kimberly: 'Kimberly', lily: 'Lily', luke: 'Luke', mai: 'Mai', manon: 'Manon',
+            marisa: 'Marisa', rashid: 'Rashid', ryu: 'Ryu', sagat: 'Sagat', terry: 'Terry',
+            vega: 'Vega', zangief: 'Zangief'
+        };
+        const ICON_FILE_MAP = {
+            cviper: 'cviper',
+            sagat: 'sagat'
+        };
         let state = {
             maxBattles: null, // null = 全件
             myCharFilter: null, // null = 全キャラ
@@ -232,6 +304,65 @@
 
         // キャラクター表示順（localStorageから読み込み、なければ空配列）
         let customCharOrder = JSON.parse(localStorage.getItem('customCharOrder') || '[]');
+
+        function getFormalCharacterName(char) {
+            if (!char) return '-';
+            return CHAR_NAME_MAP[char] || char;
+        }
+
+        function renderCharacterMiniBadge(char) {
+            if (!char || char === '-') return '-';
+            const icon = (ICON_FILE_MAP[char] || char.toUpperCase());
+            const name = getFormalCharacterName(char);
+            return `<div style="display: inline-flex; flex-direction: column; align-items: center; gap: 4px; min-width: 68px;">
+                <img src="../src/icon/${icon}.png" alt="${char}" style="width: 44px; height: 44px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                <span style="display: none; font-size: 0.75em;">${name}</span>
+                <span class="char-name" style="font-size: 0.72em; color: #444; font-weight: 600; line-height: 1; text-align: center;">${name}</span>
+            </div>`;
+        }
+
+        function getChartTextColor() {
+            return document.body.classList.contains('dark-mode') ? '#e9ecef' : '#333';
+        }
+
+        function loadFilterState() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(FILTER_STATE_KEY) || '{}');
+                state.maxBattles = saved.maxBattles || null;
+                state.myCharFilter = saved.myCharFilter || null;
+                state.matchTypeFilter = saved.matchTypeFilter || null;
+                state.minMatchCount = saved.minMatchCount || 1;
+            } catch (e) {
+                console.warn('フィルタ状態の復元に失敗:', e);
+            }
+        }
+
+        function saveFilterState() {
+            localStorage.setItem(FILTER_STATE_KEY, JSON.stringify(state));
+        }
+
+
+        function updateDarkModeButtonLabel() {
+            const btn = document.getElementById('darkModeToggleBtn');
+            if (!btn) return;
+            btn.textContent = document.body.classList.contains('dark-mode') ? '☀️ ライトモード切替' : '🌙 ダークモード切替';
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('analysisDarkMode', document.body.classList.contains('dark-mode') ? '1' : '0');
+            updateDarkModeButtonLabel();
+            if (allBattles.length > 0) {
+                updateFilters();
+            }
+        }
+
+        if (localStorage.getItem('analysisDarkMode') === '1') {
+            document.body.classList.add('dark-mode');
+        }
+
+        updateDarkModeButtonLabel();
+        loadFilterState();
 
         // Elo式の定数とキャラ補正値（データ分析により最適化）
         const ELO_K_VALUE = 340;
@@ -471,7 +602,7 @@
                             <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                                 <button class="filter-btn char-btn" data-type="myChar" data-value="" onclick="selectFilter('myChar', '')">全キャラ</button>
                                 ${myChars.map(c => `
-                                    <button class="filter-btn char-btn" data-type="myChar" data-value="${c}" onclick="selectFilter('myChar', '${c}')">${c}</button>
+                                    <button class="filter-btn char-btn" data-type="myChar" data-value="${c}" onclick="selectFilter('myChar', '${c}')">${renderCharacterMiniBadge(c)}</button>
                                 `).join('')}
                             </div>
                         </div>
@@ -519,8 +650,9 @@
                         box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
                     }
                     .char-btn {
-                        min-width: 100px;
+                        min-width: 84px;
                         font-weight: bold;
+                        padding: 8px 10px;
                     }
                     @keyframes slideUp {
                         from {
@@ -544,11 +676,13 @@
                 existingFilter.remove();
             }
 
-            // reload-btnの後に挿入
-            const reloadBtn = document.querySelector('.reload-btn');
-            reloadBtn.insertAdjacentHTML('afterend', filterHTML);
+            // topActionBarの後に挿入（操作ボタンと分離してレイアウト崩れを防止）
+            const topActionBar = document.getElementById('topActionBar');
+            topActionBar.insertAdjacentHTML('afterend', filterHTML);
 
             // 初期状態を反映
+            document.getElementById('filterMatchType').value = state.matchTypeFilter || '';
+            document.getElementById('filterMinMatch').value = state.minMatchCount || 1;
             updateFilterButtonStates();
 
             // スクロールオブザーバーを再設定
@@ -564,6 +698,7 @@
             }
 
             updateFilterButtonStates();
+            saveFilterState();
             updateFilters();
         }
 
@@ -762,6 +897,7 @@
             state.matchTypeFilter = matchType || null;
             state.minMatchCount = minMatch;
 
+            saveFilterState();
             analyzeAndRender();
         }
 
@@ -776,6 +912,7 @@
             state.minMatchCount = 1;
 
             updateFilterButtonStates();
+            saveFilterState();
             analyzeAndRender();
         }
 
@@ -1086,13 +1223,18 @@
             // 8. 連敗数の計算
             let currentLoseStreak = 0;
             let maxLoseStreak = 0;
+            let currentWinStreak = 0;
+            let maxWinStreak = 0;
             battles.forEach(b => {
                 const result = normalizeResult(b.result);
                 if (result === 'LOSE') {
                     currentLoseStreak++;
+                    currentWinStreak = 0;
                     maxLoseStreak = Math.max(maxLoseStreak, currentLoseStreak);
                 } else if (result === 'WIN') {
+                    currentWinStreak++;
                     currentLoseStreak = 0;
+                    maxWinStreak = Math.max(maxWinStreak, currentWinStreak);
                 }
             });
 
@@ -1461,6 +1603,13 @@
                     : '0.0'
             };
 
+
+            const latestBattle = battles[0] || allBattles[0] || {};
+            const profile = {
+                userCode: latestBattle.user_code || latestBattle.usercode || latestBattle.short_id || latestBattle.fighter_id || latestBattle.code || '-',
+                playerName: latestBattle.player_name || latestBattle.user_name || latestBattle.nickname || latestBattle.player || latestBattle.name || '-'
+            };
+
             // HTML生成
             renderHTML({
                 totalBattles, wins, losses, draws, unknown, winRate,
@@ -1469,13 +1618,13 @@
                 charWinRates, oppWinRates,
                 winMethods, loseMethods,
                 mrData, mrStats, mrDiffData, avgMrDiff,
-                maxLoseStreak, avgExpectedWinRate, overPerformance,
+                maxLoseStreak, maxWinStreak, avgExpectedWinRate, overPerformance,
                 charExpectedList, mrRangeExpectedList,
                 firstRoundWinRate, firstRoundWinnerMatches,
                 comebackRate, down01Situations,
                 oneOneWinRate, oneOneSituations,
                 sessionStats, avgFatigueData, sortedMrBands,
-                parseErrors, parseErrorRows, detailData,
+                parseErrors, parseErrorRows, detailData, profile,
                 isMyCharFiltered: state.myCharFilter !== null
             });
         }
@@ -1483,7 +1632,7 @@
         // HTML描画
         function renderHTML(data) {
             // キャラ名表示を作成（アイコン画像を表示）
-            const charIcon = state.myCharFilter ? state.myCharFilter : 'ALL';
+            const charIcon = state.myCharFilter ? (ICON_FILE_MAP[state.myCharFilter] || state.myCharFilter.toUpperCase()) : 'ALL';
             const charBadge = `<div style="text-align: center; margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
                      <img src="../src/icon/${charIcon}.png" alt="${charIcon}" style="height: 80px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
                      <span style="color: white; font-size: 2em; font-weight: bold; display: none;">${charIcon}</span>
@@ -1491,6 +1640,7 @@
 
             const html = `
         ${charBadge}
+        <div style="text-align: center; margin: 0 0 20px; color: var(--profile-color, #333); font-weight: 700; font-size: 1.05em;">👤 ユーザーコード: ${data.profile.userCode} / 名前: ${data.profile.playerName}</div>
         <!-- 1段目: 5枚 -->
         <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 20px;">
           <div class="stat-card">
@@ -1510,19 +1660,19 @@
           </div>
           <div class="stat-card">
             <div class="stat-label tooltip-container">
-              最大連敗数
-              <span class="tooltip-text">連続敗北記録。メンタルの乱れや調子の悪化を示す指標。連敗時は休憩を取るのが効果的。</span>
+              連勝 / 連敗
+              <span class="tooltip-text">最大連勝と最大連敗をセット表示。勢いと崩れやすい局面を一目で把握できます。</span>
             </div>
-            <div class="stat-value">${data.maxLoseStreak}</div>
-            <small style="opacity: 0.8;">連続敗北記録</small>
+            <div class="stat-value" style="font-size: 2em;">${data.maxWinStreak} / ${data.maxLoseStreak}</div>
+            <small style="opacity: 0.8;">最大連勝 / 最大連敗</small>
           </div>
           <div class="stat-card">
             <div class="stat-label tooltip-container">
-              平均MR差
+              平均対戦MR差
               <span class="tooltip-text">相手MR - 自分MRの平均。プラスなら格上相手と対戦、マイナスなら格下相手。期待勝率と組み合わせて実力の伸びを判断します。</span>
             </div>
             <div class="stat-value">${data.avgMrDiff >= 0 ? '+' : ''}${data.avgMrDiff}</div>
-            <small style="opacity: 0.8;">相手MR - 自分MR</small>
+            <small style="opacity: 0.8;">(相手MR - 自分MR)の平均</small>
           </div>
           <div class="stat-card">
             <div class="stat-label tooltip-container">
@@ -1621,7 +1771,7 @@
             <tbody>
               ${data.charExpectedList.map(c => `
                 <tr>
-                  <td><strong>${c.character}</strong></td>
+                  <td>${renderCharacterMiniBadge(c.character)}</td>
                   <td>${c.expected}%</td>
                   <td><strong>${c.actual}%</strong></td>
                   <td style="color: ${parseFloat(c.diff) >= 0 ? 'green' : 'red'}; font-weight: bold;">
@@ -1808,7 +1958,7 @@
               📈 MR推移 & MR差の推移
               <span class="tooltip-text">MR推移(青・左軸)と対戦相手とのMR差(赤・右軸)を重ねて表示。相関関係を確認しましょう。</span>
             </div>
-            <div style="margin-bottom: 10px; font-size: 0.9em; color: #666;">
+            <div style="margin-bottom: 10px; font-size: 0.9em; color: ${document.body.classList.contains('dark-mode') ? '#d0d4da' : '#666'};">
               最高MR: ${data.mrStats.max} | 最低MR: ${data.mrStats.min}
             </div>
             <canvas id="mrChart"></canvas>
@@ -1933,8 +2083,8 @@
                   <tr>
                     <td>${row.index}</td>
                     <td>${row.timestamp}</td>
-                    <td>${row.my_char}</td>
-                    <td>${row.opp_char}</td>
+                    <td>${renderCharacterMiniBadge(row.my_char)}</td>
+                    <td>${renderCharacterMiniBadge(row.opp_char)}</td>
                     <td><code>${row.round_score}</code></td>
                   </tr>
                 `).join('')}
@@ -1969,9 +2119,9 @@
                   <tr style="${!d.round_score_ok ? 'background: #fff3cd;' : ''}">
                     <td>${d.index}</td>
                     <td style="font-size: 0.8em;">${d.battle_time}</td>
-                    <td><strong>${d.my_char}</strong></td>
+                    <td>${renderCharacterMiniBadge(d.my_char)}</td>
                     <td>${d.my_mr}</td>
-                    <td><strong>${d.opp_char}</strong></td>
+                    <td>${renderCharacterMiniBadge(d.opp_char)}</td>
                     <td>${d.opp_mr}</td>
                     <td style="color: ${d.result === 'WIN' ? 'green' : d.result === 'LOSE' ? 'red' : 'gray'};">
                       <strong>${d.result}</strong>
@@ -2001,6 +2151,10 @@
 
         // チャート描画
         function renderCharts(data) {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            Chart.defaults.color = getChartTextColor();
+            Chart.defaults.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
+
             // 既存のチャートを全て破棄
             Object.keys(charts).forEach(key => {
                 if (charts[key]) {
@@ -2029,7 +2183,7 @@
                         datalabels: {
                             anchor: 'end',
                             align: 'top',
-                            color: '#333',
+                            color: getChartTextColor(),
                             font: {
                                 weight: 'bold',
                                 size: 12
@@ -2066,7 +2220,7 @@
                         datalabels: {
                             anchor: 'end',
                             align: 'top',
-                            color: '#333',
+                            color: getChartTextColor(),
                             font: {
                                 weight: 'bold',
                                 size: 12
