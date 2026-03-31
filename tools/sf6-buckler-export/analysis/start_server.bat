@@ -70,9 +70,6 @@ if defined CHROME (
 )
 
 python -m http.server 8000
-if %errorlevel% neq 0 (
-    echo.
-    echo エラー: サーバーが起動できませんでした
-    echo エラーコード: %errorlevel%
-    pause
-)
+echo.
+echo サーバーが停止しました。
+exit /b 0

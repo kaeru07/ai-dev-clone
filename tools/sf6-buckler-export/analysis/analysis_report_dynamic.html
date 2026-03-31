@@ -321,6 +321,27 @@
             </div>`;
         }
 
+        // round_score の生JSON ([1,-1,6] など) を人が読める形式に変換
+        // 正の値=自ラウンド勝ち(W)、負の値=相手ラウンド勝ち(L)
+        // コード: 8=パーフェクト(P), 7=CA, 6=SA, 5=OD, 2=削り(C), 1=通常(W/L)
+        function renderRoundScore(rawScore) {
+            if (!rawScore || rawScore === '-') return '-';
+            let scores;
+            try { scores = JSON.parse(rawScore); } catch (e) { return `<code style="font-size:0.75em;">${rawScore}</code>`; }
+            if (!Array.isArray(scores)) return `<code style="font-size:0.75em;">${rawScore}</code>`;
+            const CODE_LABEL = { 8: 'P', 7: 'CA', 6: 'SA', 5: 'OD', 2: 'C' };
+            const parts = scores.map(s => {
+                const abs = Math.abs(s);
+                const label = CODE_LABEL[abs] || (s > 0 ? 'W' : 'L');
+                const isWin = s > 0;
+                const color = isWin ? '#28a745' : '#dc3545';
+                return `<span style="color:${color}; font-weight:600;">${label}</span>`;
+            });
+            const myWins = scores.filter(s => s > 0).length;
+            const oppWins = scores.filter(s => s < 0).length;
+            return `${myWins}-${oppWins} (${parts.join('/')})`;
+        }
+
         function getChartTextColor() {
             return document.body.classList.contains('dark-mode') ? '#e9ecef' : '#333';
         }
@@ -2127,7 +2148,7 @@
                       <strong>${d.result}</strong>
                     </td>
                     <td>${d.delta_mr}</td>
-                    <td><code style="font-size: 0.75em;">${d.round_score}</code></td>
+                    <td style="font-size: 0.85em; white-space: nowrap;">${renderRoundScore(d.round_score)}</td>
                     <td style="font-size: 0.75em;">${d.replay_id}</td>
                     <td style="font-size: 0.8em;">${d.match_type}</td>
                   </tr>
