@@ -261,6 +261,39 @@
             visibility: visible;
             opacity: 1;
         }
+
+        /* 表示設定パネル */
+        #sectionVisPanel {
+            display: none;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin: 8px auto 0;
+            max-width: 900px;
+        }
+        body.dark-mode #sectionVisPanel {
+            background: #2b3140;
+            border-color: #3f4860;
+            color: #e9ecef;
+        }
+        .sec-vis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .sec-vis-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .sec-vis-item:hover { background: rgba(102,126,234,0.12); }
+        .sec-vis-item input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; }
     </style>
 </head>
 
@@ -272,6 +305,15 @@
         <div id="topActionBar" class="top-action-bar">
         <button id="darkModeToggleBtn" class="reload-btn" style="margin:0; background: linear-gradient(135deg, #495057 0%, #212529 100%);" onclick="toggleDarkMode()">🌙 ダークモード切替</button>
         <button class="reload-btn" style="margin:0;" onclick="loadAndAnalyze()">🔄 データを再読み込み</button>
+        <button class="reload-btn" style="margin:0; background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);" onclick="toggleSectionPanel()">📐 表示設定</button>
+        </div>
+        <div id="sectionVisPanel">
+          <div style="font-weight:700; font-size:0.95em; margin-bottom:4px;">表示するセクションを選択（チェックを外すと非表示）</div>
+          <div class="sec-vis-grid" id="sectionVisCheckboxes"></div>
+          <div style="margin-top:12px; display:flex; gap:8px;">
+            <button onclick="setSectionVisAll(true)"  style="padding:5px 12px; background:#667eea; color:white; border:none; border-radius:5px; cursor:pointer; font-size:0.85em;">すべて表示</button>
+            <button onclick="setSectionVisAll(false)" style="padding:5px 12px; background:#6c757d; color:white; border:none; border-radius:5px; cursor:pointer; font-size:0.85em;">すべて非表示</button>
+          </div>
         </div>
 
         <div id="content">
@@ -283,6 +325,78 @@
         let charts = {};
         let allBattles = []; // 全データ保持（正規化済み）
         const FILTER_STATE_KEY = 'analysisFilterState';
+
+        // ====== セクション表示管理 ======
+        const SECTION_VIS_KEY = 'analysisSectionVis';
+        const SECTIONS = [
+            { id: 'sec_kpi1',           label: 'KPI（1段目）' },
+            { id: 'sec_kpi2',           label: 'KPI（2段目）' },
+            { id: 'sec_elo',            label: '期待勝率分析' },
+            { id: 'sec_char_expected',  label: 'キャラ別期待勝率' },
+            { id: 'sec_mr_range',       label: 'MR帯別期待勝率' },
+            { id: 'sec_mr_diff',        label: 'MR差分別勝率' },
+            { id: 'sec_charts',         label: 'チャート一覧' },
+            { id: 'sec_session',        label: 'セッション分析' },
+            { id: 'sec_detail_session', label: 'セッション詳細' },
+            { id: 'sec_detail_battle',  label: '1戦詳細データ' },
+        ];
+
+        function loadSectionVis() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(SECTION_VIS_KEY) || '{}');
+                const vis = {};
+                SECTIONS.forEach(s => { vis[s.id] = saved[s.id] !== false; });
+                return vis;
+            } catch (e) {
+                const vis = {};
+                SECTIONS.forEach(s => { vis[s.id] = true; });
+                return vis;
+            }
+        }
+        function saveSectionVis(vis) {
+            localStorage.setItem(SECTION_VIS_KEY, JSON.stringify(vis));
+        }
+        function applySectionVis() {
+            const vis = loadSectionVis();
+            SECTIONS.forEach(s => {
+                const el = document.getElementById(s.id);
+                if (el) el.style.display = vis[s.id] ? '' : 'none';
+            });
+        }
+        function toggleSectionPanel() {
+            const panel = document.getElementById('sectionVisPanel');
+            if (panel.style.display === 'none' || !panel.style.display) {
+                buildSectionCheckboxes();
+                panel.style.display = 'block';
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+        function buildSectionCheckboxes() {
+            const vis = loadSectionVis();
+            const container = document.getElementById('sectionVisCheckboxes');
+            container.innerHTML = SECTIONS.map(s => `
+                <label class="sec-vis-item">
+                    <input type="checkbox" ${vis[s.id] ? 'checked' : ''}
+                        onchange="onSectionVisChange('${s.id}', this.checked)">
+                    <span>${s.label}</span>
+                </label>
+            `).join('');
+        }
+        function onSectionVisChange(id, checked) {
+            const vis = loadSectionVis();
+            vis[id] = checked;
+            saveSectionVis(vis);
+            const el = document.getElementById(id);
+            if (el) el.style.display = checked ? '' : 'none';
+        }
+        function setSectionVisAll(show) {
+            const vis = {};
+            SECTIONS.forEach(s => { vis[s.id] = show; });
+            saveSectionVis(vis);
+            buildSectionCheckboxes();
+            applySectionVis();
+        }
         const CHAR_NAME_MAP = {
             aki: 'A.K.I.', blanka: 'Blanka', cammy: 'Cammy', chunli: 'Chun-Li', cviper: 'C.Viper',
             deejay: 'Dee Jay', dhalsim: 'Dhalsim', ed: 'Ed', elena: 'Elena', gouki: 'Gouki',
@@ -1140,11 +1254,13 @@
                 .sort((a, b) => b.total - a.total);
 
             // 5. ラウンド取得方法（勝ち筋/負け筋に分割）
+            // コード: 8=P(パーフェクト), 7=CA, 6=SA, 5=OD, 2=C(削り), 1=V(通常)
+            // other: タイム勝ち・ダブルKOなど未知コードはここに集計
             const winMethods = {
-                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0
+                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0, other: 0
             };
             const loseMethods = {
-                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0
+                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0, other: 0
             };
             let parseErrors = 0;
             const parseErrorRows = [];
@@ -1164,7 +1280,7 @@
                         else if (val === 5) methods.od++;
                         else if (val === 2) methods.chip++;
                         else if (val === 1) methods.normal++;  // 通常勝ち/負け
-                        // else: 予期しない値は無視
+                        else methods.other++;  // タイム勝ち・ダブルKOなど未知コード
                     });
                 } catch (e) {
                     parseErrors++;
@@ -1663,7 +1779,7 @@
         ${charBadge}
         <div style="text-align: center; margin: 0 0 20px; color: var(--profile-color, #333); font-weight: 700; font-size: 1.05em;">👤 ユーザーコード: ${data.profile.userCode} / 名前: ${data.profile.playerName}</div>
         <!-- 1段目: 5枚 -->
-        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 20px;">
+        <div id="sec_kpi1"><div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 20px;">
           <div class="stat-card">
             <div class="stat-label tooltip-container">
               Total Battles
@@ -1704,10 +1820,10 @@
               <canvas id="miniMrChart"></canvas>
             </div>
           </div>
-        </div>
+        </div></div>
 
         <!-- 2段目: 4枚 -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 40px;">
+        <div id="sec_kpi2"><div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 40px;">
           <div class="stat-card">
             <div class="stat-label tooltip-container">
               先制勝率
@@ -1740,10 +1856,10 @@
             <div class="stat-value" style="font-size: 1.8em;">${data.overPerformance >= 0 ? '+' : ''}${data.overPerformance}%</div>
             <small style="opacity: 0.8;">実勝率 - 期待勝率</small>
           </div>
-        </div>
+        </div></div>
 
         <!-- 期待勝率の詳細 -->
-        <div class="table-container" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <div id="sec_elo"><div class="table-container" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
           <div class="chart-title tooltip-container" style="color: white;">
             🎯 期待勝率分析（Elo式）
             <span class="tooltip-text">MR差から計算した理論上の勝率。実勝率との差分がプラスなら実力以上の成果を出せています。</span>
@@ -1769,10 +1885,10 @@
                     ? '✨ 期待値を上回るパフォーマンスです！'
                     : '⚠️ 期待値を下回っています'}
           </div>
-        </div>
+        </div></div>
 
         <!-- 対キャラ別期待勝率分析 -->
-        ${data.charExpectedList && data.charExpectedList.length > 0 ? `
+        <div id="sec_char_expected">${data.charExpectedList && data.charExpectedList.length > 0 ? `
         <div class="table-container">
           <div class="chart-title tooltip-container">
             📊 ${data.isMyCharFiltered ? '対戦相手別' : 'キャラ別'}期待勝率分析
@@ -1807,10 +1923,10 @@
             </tbody>
           </table>
         </div>
-        ` : ''}
+        ` : ''}</div>
 
         <!-- MR帯別期待勝率分析 -->
-        ${data.mrRangeExpectedList && data.mrRangeExpectedList.length > 0 ? `
+        <div id="sec_mr_range">${data.mrRangeExpectedList && data.mrRangeExpectedList.length > 0 ? `
         <div class="table-container">
           <div class="chart-title tooltip-container">
             📈 MR帯別期待勝率分析
@@ -1845,10 +1961,10 @@
             </tbody>
           </table>
         </div>
-        ` : ''}
+        ` : ''}</div>
 
         <!-- MR差分別勝率 -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+        <div id="sec_mr_diff"><div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
           <!-- 格上帯 -->
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
             <div style="text-align: center; margin-bottom: 15px;">
@@ -1935,9 +2051,9 @@
               </details>
             ` : ''}
           </div>
-        </div>
+        </div></div>
 
-        <div class="charts-grid">
+        <div id="sec_charts"><div class="charts-grid">
           <div class="chart-container">
             <div class="chart-title tooltip-container">
               🥊 ${data.isMyCharFiltered ? '対戦相手別勝率' : 'キャラクター別勝率'}
@@ -1984,10 +2100,10 @@
             </div>
             <canvas id="mrChart"></canvas>
           </div>
-        </div>
+        </div></div>
 
         <!-- セッション分析と疲労曲線 -->
-        ${data.sessionStats && data.sessionStats.length > 0 ? `
+        <div id="sec_session">${data.sessionStats && data.sessionStats.length > 0 ? `
         <div class="table-container" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; margin-bottom: 30px;">
           <div class="chart-title tooltip-container" style="color: white;">
             ⏱️ セッション分析（30分以上の間隔で分割）
@@ -2040,9 +2156,10 @@
                             : '✨ セッションを通じて安定したパフォーマンスです！'}
           </div>
         </div>
+        ` : ''}</div>
 
         <!-- セッション詳細テーブル -->
-        <div class="table-container" style="overflow-x: auto;">
+        <div id="sec_detail_session"><div class="table-container" style="overflow-x: auto;">
           <div class="chart-title tooltip-container">
             📋 セッション詳細（直近10セッション）- MR帯別勝率推移
             <span class="tooltip-text">各セッションでのMR帯別勝率を表示。同じMR帯での成長が時系列で確認できます（3戦以上のデータのみ表示）。</span>
@@ -2081,10 +2198,10 @@
                             }).join('')}
             </tbody>
           </table>
-        </div>
+        </div></div>
         ` : ''}
 
-        ${data.parseErrors > 0 ? `
+        <div id="sec_detail_battle">${data.parseErrors > 0 ? `
         <div class="table-container" style="background: #fff3cd; border-left: 4px solid #ffc107;">
           <div class="chart-title" style="color: #856404;">⚠️ round_score解析エラー: ${data.parseErrors}件</div>
           <details>
@@ -2159,10 +2276,11 @@
           ${data.detailData.some(d => !d.round_score_ok) ?
                     '<div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px; font-size: 0.9em;">⚠️ 黄色背景の行はround_scoreの解析に失敗しています</div>'
                     : ''}
-        </div>
+        </div></div>
       `;
 
             document.getElementById('content').innerHTML = html;
+            applySectionVis();
 
             // DOMがレンダリングされた後にチャートを描画
             setTimeout(() => {
@@ -2327,7 +2445,7 @@
             charts.winMethodsChart = new Chart(document.getElementById('winMethodsChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal'],
+                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal', 'Other(タイム等)'],
                     datasets: [{
                         data: [
                             data.winMethods.perfect,
@@ -2335,11 +2453,12 @@
                             data.winMethods.sa,
                             data.winMethods.od,
                             data.winMethods.chip,
-                            data.winMethods.normal
+                            data.winMethods.normal,
+                            data.winMethods.other
                         ],
                         backgroundColor: [
                             '#28a745', '#20c997', '#17a2b8', '#007bff',
-                            '#6610f2', '#343a40'
+                            '#6610f2', '#343a40', '#adb5bd'
                         ]
                     }]
                 },
@@ -2385,7 +2504,7 @@
             charts.loseMethodsChart = new Chart(document.getElementById('loseMethodsChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal'],
+                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal', 'Other(タイム等)'],
                     datasets: [{
                         data: [
                             data.loseMethods.perfect,
@@ -2393,11 +2512,12 @@
                             data.loseMethods.sa,
                             data.loseMethods.od,
                             data.loseMethods.chip,
-                            data.loseMethods.normal
+                            data.loseMethods.normal,
+                            data.loseMethods.other
                         ],
                         backgroundColor: [
                             '#dc3545', '#fd7e14', '#ffc107', '#e83e8c',
-                            '#6c757d', '#343a40'
+                            '#6c757d', '#343a40', '#adb5bd'
                         ]
                     }]
                 },
