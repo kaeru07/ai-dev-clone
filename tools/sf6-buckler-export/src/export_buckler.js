@@ -20,7 +20,15 @@ const SCRAPE_INTERVAL = 150; // 分（スクレイピング間隔）
 const KEEP_ALIVE_INTERVAL = 60; // 分（セッション延命のページアクセス間隔）
 const SESSION_FILE = path.join(__dirname, "buckler-session.json");
 
-const BASE_URL = `https://www.streetfighter.com/6/buckler/ja-jp/profile/${SID}/battlelog/rank`;
+// 対戦種別URLパス
+const MATCH_TYPE_PATHS = {
+  rank:        { path: "rank",         label: "ランクマッチ",   hasMR: true  },
+  casual:      { path: "casual_match", label: "カジュアルマッチ", hasMR: false },
+  custom:      { path: "custom_match", label: "カスタムマッチ",  hasMR: false },
+  battle_hub:  { path: "hub",          label: "バトルハブ",      hasMR: false },
+};
+
+const BASE_PROFILE_URL = `https://www.streetfighter.com/6/buckler/ja-jp/profile/${SID}/battlelog`;
 const OUTPUT_DIR = path.join(__dirname, "../exported-csv");
 
 function pad2(n) {
@@ -194,8 +202,35 @@ function pickSides(replay, myShortId, myFighterId) {
   return { me: p1, opp: p2, meSide: 1 };
 }
 
+async function selectMatchType() {
+  const keys = Object.keys(MATCH_TYPE_PATHS);
+  console.log("====================================");
+  console.log("取得する対戦種別を選んでください:");
+  keys.forEach((k, i) => {
+    console.log(`  ${i + 1}) ${MATCH_TYPE_PATHS[k].label}`);
+  });
+  console.log("番号を入力して Enter (デフォルト: 1=ランクマッチ):");
+  console.log("====================================");
+
+  return new Promise((resolve) => {
+    process.stdin.resume();
+    process.stdin.once("data", (d) => {
+      process.stdin.pause();
+      const n = parseInt(d.toString().trim(), 10);
+      const key = (n >= 1 && n <= keys.length) ? keys[n - 1] : "rank";
+      console.log(`✓ 選択: ${MATCH_TYPE_PATHS[key].label}`);
+      resolve(key);
+    });
+  });
+}
+
 async function main() {
   ensureDir(OUTPUT_DIR);
+
+  // 対戦種別を選択
+  const matchTypeKey = process.argv[2] || await selectMatchType();
+  const matchTypeDef = MATCH_TYPE_PATHS[matchTypeKey] || MATCH_TYPE_PATHS["rank"];
+  const BASE_URL = `${BASE_PROFILE_URL}/${matchTypeDef.path}`;
 
   // Edgeで動かしたい場合：channel: "msedge" を使う
   // ただし環境によっては未対応なので、まずはchromium標準でOK
@@ -208,8 +243,8 @@ async function main() {
   const page = await context.newPage();
 
   console.log("====================================");
-  console.log("1) ブラウザで Buckler にログイン");
-  console.log("2) バトルログ(ランクマ)が見える状態にする");
+  console.log(`1) ブラウザで Buckler にログイン`);
+  console.log(`2) バトルログ(${matchTypeDef.label})が見える状態にする`);
   console.log("準備できたら Enter を押してください");
   console.log("====================================");
 
@@ -231,6 +266,7 @@ async function main() {
   const header = [
     "battle_time_jst",
     "battle_type",
+    "match_type",
     "my_character",
     "opp_character",
     "my_mr",
@@ -272,8 +308,8 @@ async function main() {
       const myMr = me?.master_rating ?? "";
       const oppMr = opp?.master_rating ?? "";
 
-      // MRが0のデータをスキップ
-      if (myMr === 0 || oppMr === 0) {
+      // ランクマのみMR=0スキップ（カジュアル等はMR不要）
+      if (matchTypeDef.hasMR && (myMr === 0 || oppMr === 0)) {
         continue;
       }
 
@@ -318,6 +354,7 @@ async function main() {
       const line = [
         battleTime,
         battleType,
+        matchTypeKey,
         myChar,
         oppChar,
         myMr,

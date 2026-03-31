@@ -23,7 +23,20 @@ const SCRAPE_INTERVAL = 150; // 分（スクレイピング間隔）
 const KEEP_ALIVE_INTERVAL = 60; // 分（セッション延命のページアクセス間隔）
 const SESSION_FILE = path.join(__dirname, "buckler-session.json");
 
-const BASE_URL = `https://www.streetfighter.com/6/buckler/ja-jp/profile/${SID}/battlelog/rank`;
+// 対戦種別URLパス
+const MATCH_TYPE_PATHS = {
+  rank:        { path: "rank",         label: "ランクマッチ",   hasMR: true  },
+  casual:      { path: "casual_match", label: "カジュアルマッチ", hasMR: false },
+  custom:      { path: "custom_match", label: "カスタムマッチ",  hasMR: false },
+  battle_hub:  { path: "hub",          label: "バトルハブ",      hasMR: false },
+};
+
+// コマンドライン引数 --type=rank|casual|custom|battle_hub で種別指定可能
+const argType = process.argv.slice(2).find(a => a.startsWith("--type="))?.split("=")[1];
+const MATCH_TYPE_KEY = (argType && MATCH_TYPE_PATHS[argType]) ? argType : "rank";
+const MATCH_TYPE_DEF = MATCH_TYPE_PATHS[MATCH_TYPE_KEY];
+const BASE_URL = `https://www.streetfighter.com/6/buckler/ja-jp/profile/${SID}/battlelog/${MATCH_TYPE_DEF.path}`;
+
 const OUTPUT_DIR = path.join(__dirname, "../exported-csv");
 
 function pad2(n) {
@@ -252,7 +265,7 @@ async function main() {
     try {
       if (isFirstRun) {
         console.log("1) ブラウザで Buckler にログイン");
-        console.log("2) バトルログ(ランクマ)が見える状態にする");
+        console.log(`2) バトルログ(${MATCH_TYPE_DEF.label})が見える状態にする`);
         console.log("準備できたら Enter を押してください");
         await page.goto(`${BASE_URL}?page=1`, {
           waitUntil: "domcontentloaded",
@@ -298,6 +311,7 @@ async function main() {
       const header = [
         "battle_time_jst",
         "battle_type",
+        "match_type",
         "my_character",
         "opp_character",
         "my_mr",
@@ -338,7 +352,8 @@ async function main() {
           const oppMr = opp?.master_rating ?? "";
 
           // MRが0のデータをスキップ
-          if (myMr === 0 || oppMr === 0) {
+          // ランクマのみMR=0スキップ（カジュアル等はMR不要）
+          if (MATCH_TYPE_DEF.hasMR && (myMr === 0 || oppMr === 0)) {
             continue;
           }
 
@@ -376,6 +391,7 @@ async function main() {
           const line = [
             battleTime,
             battleType,
+            MATCH_TYPE_KEY,
             myChar,
             oppChar,
             myMr,
