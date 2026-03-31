@@ -1,6 +1,16 @@
 {
   "cookies": [
     {
+      "name": "_csrf",
+      "value": "r1fNGZTaA-1k_23Q6B0Qaqf3",
+      "domain": "auth.cid.capcom.com",
+      "path": "/usernamepassword/login",
+      "expires": 1772805345.016133,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
       "name": "JSESSIONID",
       "value": "5cb4c40dc85bb95a",
       "domain": ".nr-data.net",
@@ -35,7 +45,7 @@
       "value": "GA1.1.283343309.1766582496",
       "domain": ".streetfighter.com",
       "path": "/",
-      "expires": 1802525228.259356,
+      "expires": 1806852569.127639,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -82,7 +92,7 @@
     },
     {
       "name": "SESSION",
-      "value": "MTVlMGFmZjAtNjFlYi00ODQ5LTg4OWUtY2ZjOGE4MmEzMTY4",
+      "value": "MjE0OTA1ZDItNzczMC00MjVlLWFkMjAtM2Y3MzFmZDQ0NGU0",
       "domain": "cid.capcom.com",
       "path": "/",
       "expires": -1,
@@ -92,60 +102,50 @@
     },
     {
       "name": "buckler_id",
-      "value": "7Kksfypjw_CULhvUDi7rtrr4f7q8V29Vl3jOqO61rKXxkhqujH9i5pTWp727Xb6I",
+      "value": "gKstfqaewJwRFWwMhHKdcgHISsISGo-ungEP8yJpAZ8Bewy7mBv3_rBJaQSGhLMq",
       "domain": "www.streetfighter.com",
       "path": "/",
-      "expires": 1769174557.998603,
+      "expires": 1774533370.454914,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     },
     {
       "name": "buckler_r_id",
-      "value": "539d30aa-bf51-425e-85fc-dd6bb2189898",
+      "value": "117301e6-852a-436d-bd6d-c2a8bb6fba5b",
       "domain": "www.streetfighter.com",
       "path": "/",
-      "expires": 1769174557.998649,
+      "expires": 1774533370.455297,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Lax"
     },
     {
-      "name": "buckler_praise_hidden",
-      "value": "true",
-      "domain": "www.streetfighter.com",
-      "path": "/",
-      "expires": 1769461351.237298,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
       "name": "buckler_praise_date",
-      "value": "1767965203374",
+      "value": "1772292045261",
       "domain": "www.streetfighter.com",
       "path": "/",
-      "expires": 1768051603.374897,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
-      "name": "_ga_4BKH6S3JTF",
-      "value": "GS2.1.s1767965203$o23$g1$t1767965228$j35$l0$h0",
-      "domain": ".streetfighter.com",
-      "path": "/",
-      "expires": 1802525228.246548,
+      "expires": 1772378445.262245,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "_ga_LZJGXR1W9E",
-      "value": "GS2.1.s1767965203$o23$g1$t1767965228$j35$l0$h0",
+      "value": "GS2.1.s1772292532$o25$g1$t1772292568$j24$l0$h0",
       "domain": ".streetfighter.com",
       "path": "/",
-      "expires": 1802525228.258872,
+      "expires": 1806852568.578679,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_4BKH6S3JTF",
+      "value": "GS2.1.s1772292050$o25$g1$t1772292569$j23$l0$h0",
+      "domain": ".streetfighter.com",
+      "path": "/",
+      "expires": 1806852569.126915,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"

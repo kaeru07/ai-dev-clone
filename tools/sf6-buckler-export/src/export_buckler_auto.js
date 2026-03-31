@@ -17,7 +17,7 @@ const { chromium } = require("playwright");
 const { execSync } = require("child_process");
 
 // ====== SETTINGS ======
-const SID = "1146188535"; // ←あなたのsid（URLの /profile/{sid}/ に入ってる数値）※初回起動時に自動設定されます
+const SID = "3133570759"; // ←あなたのsid（URLの /profile/{sid}/ に入ってる数値）※初回起動時に自動設定されます
 const TOTAL_PAGES = 10;
 const SCRAPE_INTERVAL = 150; // 分（スクレイピング間隔）
 const KEEP_ALIVE_INTERVAL = 60; // 分（セッション延命のページアクセス間隔）
