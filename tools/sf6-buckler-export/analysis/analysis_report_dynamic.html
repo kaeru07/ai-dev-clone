@@ -1850,11 +1850,11 @@
           </div>
           <div class="stat-card">
             <div class="stat-label tooltip-container">
-              平均対戦MR差
-              <span class="tooltip-text">相手MR - 自分MRの平均。プラスなら格上相手と対戦、マイナスなら格下相手。期待勝率と組み合わせて実力の伸びを判断します。</span>
+              相手との格差（平均）
+              <span class="tooltip-text">「相手MR − 自分MR」の平均値。プラスが大きいほど格上相手中心のマッチング、マイナスなら格下相手中心。0付近が同格帯での対戦です。</span>
             </div>
-            <div class="stat-value">${data.avgMrDiff >= 0 ? '+' : ''}${data.avgMrDiff}</div>
-            <small style="opacity: 0.8;">(相手MR - 自分MR)の平均</small>
+            <div class="stat-value">${data.avgMrDiff >= 0 ? '格上 +' : '格下 '}${Math.abs(data.avgMrDiff)}</div>
+            <small style="opacity: 0.8;">+ = 格上相手中心 / − = 格下相手中心</small>
           </div>
           <div class="stat-card">
             <div class="stat-label tooltip-container">
@@ -2451,7 +2451,7 @@
                             pointHoverRadius: 5
                         },
                         {
-                            label: 'MR差 (相手 - 自分)',
+                            label: '相手との格差 (相手MR − 自分MR)',
                             data: data.mrDiffData,
                             borderColor: 'rgba(255, 99, 132, 1)',
                             backgroundColor: 'rgba(255, 99, 132, 0.1)',
@@ -2484,7 +2484,7 @@
                             type: 'linear',
                             display: true,
                             position: 'right',
-                            title: { display: true, text: 'MR差' },
+                            title: { display: true, text: '相手との格差' },
                             grid: {
                                 drawOnChartArea: false,
                                 color: function (context) {
