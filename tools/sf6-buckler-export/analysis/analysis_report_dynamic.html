@@ -1402,21 +1402,29 @@
                 ? (mrDiffData.reduce((sum, d) => sum + d.y, 0) / mrDiffData.length).toFixed(1)
                 : '0.0';
 
-            // 8. 連敗数の計算
-            let currentLoseStreak = 0;
-            let maxLoseStreak = 0;
+            // 8. 連勝数の計算
             let currentWinStreak = 0;
             let maxWinStreak = 0;
             battles.forEach(b => {
                 const result = normalizeResult(b.result);
-                if (result === 'LOSE') {
-                    currentLoseStreak++;
-                    currentWinStreak = 0;
-                    maxLoseStreak = Math.max(maxLoseStreak, currentLoseStreak);
-                } else if (result === 'WIN') {
+                if (result === 'WIN') {
                     currentWinStreak++;
-                    currentLoseStreak = 0;
                     maxWinStreak = Math.max(maxWinStreak, currentWinStreak);
+                } else if (result === 'LOSE') {
+                    currentWinStreak = 0;
+                }
+            });
+            // 直近30戦の最大連勝数
+            const recent30 = battles.slice(-30);
+            let cur30Win = 0;
+            let recent30WinStreak = 0;
+            recent30.forEach(b => {
+                const result = normalizeResult(b.result);
+                if (result === 'WIN') {
+                    cur30Win++;
+                    recent30WinStreak = Math.max(recent30WinStreak, cur30Win);
+                } else if (result === 'LOSE') {
+                    cur30Win = 0;
                 }
             });
 
@@ -1800,7 +1808,7 @@
                 charWinRates, oppWinRates,
                 winMethods, loseMethods,
                 mrData, mrStats, mrDiffData, avgMrDiff,
-                maxLoseStreak, maxWinStreak, avgExpectedWinRate, overPerformance,
+                maxWinStreak, recent30WinStreak, avgExpectedWinRate, overPerformance,
                 charExpectedList, mrRangeExpectedList,
                 firstRoundWinRate, firstRoundWinnerMatches,
                 comebackRate, down01Situations,
@@ -1842,18 +1850,18 @@
           </div>
           <div class="stat-card">
             <div class="stat-label tooltip-container">
-              連勝 / 連敗
-              <span class="tooltip-text">最大連勝と最大連敗をセット表示。勢いと崩れやすい局面を一目で把握できます。</span>
+              最大連勝 / 直近30戦
+              <span class="tooltip-text">全期間の最大連勝数と、直近30戦での最大連勝数。勢いが続いているか一目で把握できます。</span>
             </div>
-            <div class="stat-value" style="font-size: 2em;">${data.maxWinStreak} / ${data.maxLoseStreak}</div>
-            <small style="opacity: 0.8;">最大連勝 / 最大連敗</small>
+            <div class="stat-value" style="font-size: 2em;">${data.maxWinStreak} / ${data.recent30WinStreak}</div>
+            <small style="opacity: 0.8;">最大連勝 / 直近30戦最大連勝</small>
           </div>
           <div class="stat-card">
             <div class="stat-label tooltip-container">
               相手との格差（平均）
               <span class="tooltip-text">「相手MR − 自分MR」の平均値。プラスが大きいほど格上相手中心のマッチング、マイナスなら格下相手中心。0付近が同格帯での対戦です。</span>
             </div>
-            <div class="stat-value">${data.avgMrDiff >= 0 ? '格上 +' : '格下 '}${Math.abs(data.avgMrDiff)}</div>
+            <div class="stat-value">${Math.abs(parseFloat(data.avgMrDiff)) < 1 ? '同格帯 ±0' : data.avgMrDiff > 0 ? '格上 +' + data.avgMrDiff : '格下 ' + Math.abs(data.avgMrDiff)}</div>
             <small style="opacity: 0.8;">+ = 格上相手中心 / − = 格下相手中心</small>
           </div>
           <div class="stat-card">
@@ -2204,7 +2212,8 @@
         ` : ''}</div>
 
         <!-- セッション詳細テーブル -->
-        <div id="sec_detail_session"><div class="table-container" style="overflow-x: auto;">
+        <div id="sec_detail_session">${data.sessionStats && data.sessionStats.length > 0 ? `
+        <div class="table-container" style="overflow-x: auto;">
           <div class="chart-title tooltip-container">
             📋 セッション詳細（直近10セッション）- MR帯別勝率推移
             <span class="tooltip-text">各セッションでのMR帯別勝率を表示。同じMR帯での成長が時系列で確認できます（3戦以上のデータのみ表示）。</span>
@@ -2243,8 +2252,8 @@
                             }).join('')}
             </tbody>
           </table>
-        </div></div>
-        ` : ''}
+        </div>
+        ` : ''}</div>
 
         <div id="sec_detail_battle">${data.parseErrors > 0 ? `
         <div class="table-container" style="background: #fff3cd; border-left: 4px solid #ffc107;">
