@@ -409,6 +409,49 @@
             cviper: 'cviper',
             sagat: 'sagat'
         };
+
+        // キャラアイコン画像キャッシュ
+        const charImageCache = {};
+        function preloadCharImages(chars) {
+            chars.forEach(char => {
+                if (charImageCache[char]) return;
+                const iconKey = ICON_FILE_MAP[char] || char.toUpperCase();
+                const img = new Image();
+                img.src = `../src/icon/${iconKey}.png`;
+                img.onload = () => {
+                    if (charts.charChart) charts.charChart.draw();
+                    if (charts.oppChart) charts.oppChart.draw();
+                };
+                charImageCache[char] = img;
+            });
+        }
+
+        // X軸にキャラアイコンを描画するカスタムChart.jsプラグイン
+        const charIconAxisPlugin = {
+            id: 'charIconAxis',
+            afterDraw(chart) {
+                const opts = (chart.options.plugins || {}).charIconAxis;
+                if (!opts || !opts.chars) return;
+                const { ctx, scales, chartArea } = chart;
+                const xAxis = scales.x;
+                const iconSize = opts.iconSize || 36;
+                opts.chars.forEach((char, index) => {
+                    if (index >= xAxis.ticks.length) return;
+                    const x = xAxis.getPixelForTick(index);
+                    const y = chartArea.bottom + 6;
+                    const img = charImageCache[char];
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        ctx.drawImage(img, x - iconSize / 2, y, iconSize, iconSize);
+                    } else {
+                        ctx.fillStyle = getChartTextColor();
+                        ctx.font = '10px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(getFormalCharacterName(char), x, y + 12);
+                    }
+                });
+            }
+        };
+
         let state = {
             maxBattles: null, // null = 全件
             myCharFilter: null, // null = 全キャラ
@@ -437,13 +480,13 @@
 
         // round_score の生JSON ([1,-1,6] など) を人が読める形式に変換
         // 正の値=自ラウンド勝ち(W)、負の値=相手ラウンド勝ち(L)
-        // コード: 8=パーフェクト(P), 7=CA, 6=SA, 5=OD, 2=削り(C), 1=通常(W/L)
+        // コード: 8=パーフェクト(P), 7=CA, 6=SA, 5=OD, 3=タイム勝ち(T), 4=ダブルKO(DKO), 2=削り(C), 1=通常(W/L)
         function renderRoundScore(rawScore) {
             if (!rawScore || rawScore === '-') return '-';
             let scores;
             try { scores = JSON.parse(rawScore); } catch (e) { return `<code style="font-size:0.75em;">${rawScore}</code>`; }
             if (!Array.isArray(scores)) return `<code style="font-size:0.75em;">${rawScore}</code>`;
-            const CODE_LABEL = { 8: 'P', 7: 'CA', 6: 'SA', 5: 'OD', 2: 'C' };
+            const CODE_LABEL = { 8: 'P', 7: 'CA', 6: 'SA', 5: 'OD', 3: 'T', 4: 'DKO', 2: 'C' };
             const parts = scores.map(s => {
                 const abs = Math.abs(s);
                 const label = CODE_LABEL[abs] || (s > 0 ? 'W' : 'L');
@@ -1255,12 +1298,12 @@
 
             // 5. ラウンド取得方法（勝ち筋/負け筋に分割）
             // コード: 8=P(パーフェクト), 7=CA, 6=SA, 5=OD, 2=C(削り), 1=V(通常)
-            // other: タイム勝ち・ダブルKOなど未知コードはここに集計
+            // コード: 8=P, 7=CA, 6=SA, 5=OD, 3=タイム勝ち, 4=ダブルKO, 2=削り, 1=通常
             const winMethods = {
-                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0, other: 0
+                perfect: 0, ca: 0, sa: 0, od: 0, timeup: 0, doubleKO: 0, chip: 0, normal: 0, other: 0
             };
             const loseMethods = {
-                perfect: 0, ca: 0, sa: 0, od: 0, chip: 0, normal: 0, other: 0
+                perfect: 0, ca: 0, sa: 0, od: 0, timeup: 0, doubleKO: 0, chip: 0, normal: 0, other: 0
             };
             let parseErrors = 0;
             const parseErrorRows = [];
@@ -1278,9 +1321,11 @@
                         else if (val === 7) methods.ca++;
                         else if (val === 6) methods.sa++;
                         else if (val === 5) methods.od++;
+                        else if (val === 3) methods.timeup++;   // タイム勝ち
+                        else if (val === 4) methods.doubleKO++; // ダブルKO
                         else if (val === 2) methods.chip++;
-                        else if (val === 1) methods.normal++;  // 通常勝ち/負け
-                        else methods.other++;  // タイム勝ち・ダブルKOなど未知コード
+                        else if (val === 1) methods.normal++;
+                        else methods.other++;
                     });
                 } catch (e) {
                     parseErrors++;
@@ -2294,6 +2339,13 @@
             Chart.defaults.color = getChartTextColor();
             Chart.defaults.borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.1)';
 
+            // キャラアイコン画像を事前読み込み
+            const allChars = [
+                ...data.charWinRates.map(c => c.character),
+                ...data.oppWinRates.map(o => o.opponent)
+            ];
+            preloadCharImages([...new Set(allChars)]);
+
             // 既存のチャートを全て破棄
             Object.keys(charts).forEach(key => {
                 if (charts[key]) {
@@ -2306,7 +2358,7 @@
             charts.charChart = new Chart(document.getElementById('charChart'), {
                 type: 'bar',
                 data: {
-                    labels: data.charWinRates.map(c => c.character),
+                    labels: data.charWinRates.map(c => getFormalCharacterName(c.character)),
                     datasets: [{
                         label: '勝率 (%)',
                         data: data.charWinRates.map(c => parseFloat(c.winRate)),
@@ -2318,32 +2370,33 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: { padding: { bottom: 48 } },
                     plugins: {
                         datalabels: {
                             anchor: 'end',
                             align: 'top',
                             color: getChartTextColor(),
-                            font: {
-                                weight: 'bold',
-                                size: 12
-                            },
-                            formatter: function (value) {
-                                return value.toFixed(1) + '%';
-                            }
+                            font: { weight: 'bold', size: 12 },
+                            formatter: function (value) { return value.toFixed(1) + '%'; }
+                        },
+                        charIconAxis: {
+                            chars: data.charWinRates.map(c => c.character),
+                            iconSize: 36
                         }
                     },
                     scales: {
+                        x: { ticks: { display: false } },
                         y: { beginAtZero: true, max: 100 }
                     }
                 },
-                plugins: [ChartDataLabels]
+                plugins: [ChartDataLabels, charIconAxisPlugin]
             });
 
             // 対戦相手別チャート
             charts.oppChart = new Chart(document.getElementById('oppChart'), {
                 type: 'bar',
                 data: {
-                    labels: data.oppWinRates.map(o => o.opponent),
+                    labels: data.oppWinRates.map(o => getFormalCharacterName(o.opponent)),
                     datasets: [{
                         label: '対戦数',
                         data: data.oppWinRates.map(o => o.total),
@@ -2355,25 +2408,30 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: { padding: { bottom: 48 } },
                     plugins: {
                         datalabels: {
                             anchor: 'end',
                             align: 'top',
                             color: getChartTextColor(),
-                            font: {
-                                weight: 'bold',
-                                size: 12
-                            },
+                            font: { weight: 'bold', size: 12 },
                             formatter: function (value, context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
                                 return value + '回\n(' + percentage + '%)';
                             }
+                        },
+                        charIconAxis: {
+                            chars: data.oppWinRates.map(o => o.opponent),
+                            iconSize: 36
                         }
                     },
-                    scales: { y: { beginAtZero: true } }
+                    scales: {
+                        x: { ticks: { display: false } },
+                        y: { beginAtZero: true }
+                    }
                 },
-                plugins: [ChartDataLabels]
+                plugins: [ChartDataLabels, charIconAxisPlugin]
             });
 
             // MR推移 & MR差の推移を重ねたチャート
@@ -2445,20 +2503,22 @@
             charts.winMethodsChart = new Chart(document.getElementById('winMethodsChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal', 'Other(タイム等)'],
+                    labels: ['Perfect', 'CA', 'SA', 'OD', 'タイム勝ち', 'ダブルKO', 'Chip', 'Normal', 'Other'],
                     datasets: [{
                         data: [
                             data.winMethods.perfect,
                             data.winMethods.ca,
                             data.winMethods.sa,
                             data.winMethods.od,
+                            data.winMethods.timeup,
+                            data.winMethods.doubleKO,
                             data.winMethods.chip,
                             data.winMethods.normal,
                             data.winMethods.other
                         ],
                         backgroundColor: [
                             '#28a745', '#20c997', '#17a2b8', '#007bff',
-                            '#6610f2', '#343a40', '#adb5bd'
+                            '#ff8c00', '#ff4500', '#6610f2', '#343a40', '#adb5bd'
                         ]
                     }]
                 },
@@ -2504,20 +2564,22 @@
             charts.loseMethodsChart = new Chart(document.getElementById('loseMethodsChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Perfect', 'CA', 'SA', 'OD', 'Chip', 'Normal', 'Other(タイム等)'],
+                    labels: ['Perfect', 'CA', 'SA', 'OD', 'タイム負け', 'ダブルKO', 'Chip', 'Normal', 'Other'],
                     datasets: [{
                         data: [
                             data.loseMethods.perfect,
                             data.loseMethods.ca,
                             data.loseMethods.sa,
                             data.loseMethods.od,
+                            data.loseMethods.timeup,
+                            data.loseMethods.doubleKO,
                             data.loseMethods.chip,
                             data.loseMethods.normal,
                             data.loseMethods.other
                         ],
                         backgroundColor: [
                             '#dc3545', '#fd7e14', '#ffc107', '#e83e8c',
-                            '#6c757d', '#343a40', '#adb5bd'
+                            '#ff8c00', '#ff4500', '#6c757d', '#343a40', '#adb5bd'
                         ]
                     }]
                 },
