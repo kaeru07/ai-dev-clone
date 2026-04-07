@@ -3,6 +3,14 @@ param(
     [string]$SID
 )
 
+# 先頭・末尾の空白とコロンを除去（例: ":1234567890" → "1234567890"）
+$SID = $SID.Trim().TrimStart(':').Trim()
+
+if ($SID -eq '') {
+    Write-Error "SIDが空です。"
+    exit 1
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $file1 = Join-Path $scriptDir "src\export_buckler_auto.js"
 $file2 = Join-Path $scriptDir "src\export_buckler.js"

@@ -65,8 +65,8 @@ if defined CHROME (
     REM Chrome で直接起動
     start "" "%CHROME%" "http://localhost:8000/analysis/analysis_report_dynamic.html"
 ) else (
-    REM Chrome がなければ iexplore.exe で起動
-    start "" "iexplore.exe" "http://localhost:8000/analysis/analysis_report_dynamic.html"
+    REM デフォルトブラウザで起動
+    start "" "http://localhost:8000/analysis/analysis_report_dynamic.html"
 )
 
 python -m http.server 8000
