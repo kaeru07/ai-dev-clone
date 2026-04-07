@@ -329,7 +329,7 @@
 
         <div id="topActionBar" class="top-action-bar">
         <button id="darkModeToggleBtn" class="reload-btn" style="margin:0; background: linear-gradient(135deg, #495057 0%, #212529 100%);" onclick="toggleDarkMode()">🌙 ダークモード切替</button>
-        <button class="reload-btn" style="margin:0;" onclick="loadAndAnalyze()">🔄 データを再読み込み</button>
+        <button class="reload-btn" style="margin:0;" onclick="loadProfile().then(()=>loadAndAnalyze())">🔄 データを再読み込み</button>
         <button class="reload-btn" style="margin:0; background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);" onclick="toggleSectionPanel()">📐 表示設定</button>
         </div>
         <div id="sectionVisPanel">
@@ -636,6 +636,18 @@
             if (r === 'LOSE' || r === 'L' || r === 'LOSS') return 'LOSE';
             if (r === 'DRAW' || r === 'D') return 'DRAW';
             return 'UNKNOWN';
+        }
+
+        // profile.json を先読みしてグローバルに保持
+        async function loadProfile() {
+            try {
+                const res = await fetch('/exported-csv/profile.json');
+                if (res.ok) {
+                    window._profileJson = await res.json();
+                }
+            } catch (e) {
+                // profile.json がなければ無視
+            }
         }
 
         // CSV読み込みと分析
@@ -1812,9 +1824,11 @@
 
 
             const latestBattle = battles[0] || allBattles[0] || {};
+            const csvUserCode = latestBattle.my_short_id || latestBattle.user_code || latestBattle.usercode || latestBattle.short_id || latestBattle.fighter_id || latestBattle.code || '';
+            const csvPlayerName = latestBattle.my_player_name || latestBattle.player_name || latestBattle.user_name || latestBattle.nickname || latestBattle.player || latestBattle.name || '';
             const profile = {
-                userCode: latestBattle.my_short_id || latestBattle.user_code || latestBattle.usercode || latestBattle.short_id || latestBattle.fighter_id || latestBattle.code || '-',
-                playerName: latestBattle.my_player_name || latestBattle.player_name || latestBattle.user_name || latestBattle.nickname || latestBattle.player || latestBattle.name || '-'
+                userCode: window._profileJson?.short_id || csvUserCode || '-',
+                playerName: window._profileJson?.player_name || csvPlayerName || '-'
             };
 
             // HTML生成
@@ -2706,7 +2720,7 @@
         }
 
         // 初回読み込み
-        loadAndAnalyze();
+        loadProfile().then(() => loadAndAnalyze());
 
         // スクロール時にフィルターメニューを自動で閉じる
         let menuOpenScrollY = null;

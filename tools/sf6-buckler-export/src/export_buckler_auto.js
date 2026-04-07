@@ -309,7 +309,20 @@ async function main() {
       }
 
       const { myShortId, myFighterId, myPlayerName } = extractMyIdentity(next1);
-      console.log("My identity:", { myShortId, myFighterId });
+      console.log("My identity:", { myShortId, myFighterId, myPlayerName });
+
+      // プロフィール情報をJSONファイルに保存（HTMLがここから読み取る）
+      const profilePath = path.join(__dirname, "../exported-csv/profile.json");
+      try {
+        fs.writeFileSync(profilePath, JSON.stringify({
+          short_id: myShortId || "",
+          player_name: myPlayerName || "",
+          updated_at: new Date().toISOString()
+        }, null, 2), "utf-8");
+        console.log(`✓ プロフィール保存: ${profilePath}`);
+      } catch (e) {
+        console.warn("⚠ プロフィール保存失敗:", e.message);
+      }
 
       const outPath = path.join(OUTPUT_DIR, `battlelog_${nowStamp()}.csv`);
       const header = [
