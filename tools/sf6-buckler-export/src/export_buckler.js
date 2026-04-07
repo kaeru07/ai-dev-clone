@@ -171,11 +171,15 @@ async function getNextData(page) {
 function extractMyIdentity(nextData) {
   const pp = nextData?.props?.pageProps;
   const banner = pp?.fighter_banner_info;
+  const info = banner?.personal_info;
 
-  const myShortId = banner?.personal_info?.short_id;
-  const myFighterId = banner?.personal_info?.fighter_id;
+  const myShortId = info?.short_id;
+  const myFighterId = info?.fighter_id;
+  const myPlayerName =
+    info?.player_name || info?.fighter_name || info?.name ||
+    banner?.player_name || banner?.name || "";
 
-  return { myShortId, myFighterId };
+  return { myShortId, myFighterId, myPlayerName };
 }
 
 function pickSides(replay, myShortId, myFighterId) {
@@ -260,8 +264,8 @@ async function main() {
     await browser.close();
     process.exit(1);
   }
-  const { myShortId, myFighterId } = extractMyIdentity(next1);
-  console.log("My identity:", { myShortId, myFighterId });
+  const { myShortId, myFighterId, myPlayerName } = extractMyIdentity(next1);
+  console.log("My identity:", { myShortId, myFighterId, myPlayerName });
 
   const header = [
     "battle_time_jst",
@@ -276,6 +280,7 @@ async function main() {
     "replay_id",
     "page",
     "my_short_id",
+    "my_player_name",
   ].join(",");
 
   const rows = [header];
@@ -365,6 +370,7 @@ async function main() {
         replayId,
         String(p),
         myShortId || "",
+        myPlayerName || "",
       ]
         .map(csvEscape)
         .join(",");

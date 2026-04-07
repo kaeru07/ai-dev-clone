@@ -1813,7 +1813,7 @@
             const latestBattle = battles[0] || allBattles[0] || {};
             const profile = {
                 userCode: latestBattle.my_short_id || latestBattle.user_code || latestBattle.usercode || latestBattle.short_id || latestBattle.fighter_id || latestBattle.code || '-',
-                playerName: latestBattle.player_name || latestBattle.user_name || latestBattle.nickname || latestBattle.player || latestBattle.name || '-'
+                playerName: latestBattle.my_player_name || latestBattle.player_name || latestBattle.user_name || latestBattle.nickname || latestBattle.player || latestBattle.name || '-'
             };
 
             // HTML生成

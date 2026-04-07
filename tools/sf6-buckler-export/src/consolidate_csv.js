@@ -184,6 +184,11 @@ async function main() {
 
     if (!header && h) {
       header = h;
+    } else if (h) {
+      // 新CSVに追加列があればヘッダーにマージ
+      h.forEach(col => {
+        if (!header.includes(col)) header.push(col);
+      });
     }
 
     let addedCount = 0;
