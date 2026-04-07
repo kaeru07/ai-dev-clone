@@ -66,7 +66,7 @@ if defined CHROME (
     start "" "%CHROME%" "http://localhost:8000/analysis/analysis_report_dynamic.html"
 ) else (
     REM デフォルトブラウザで起動
-    explorer "http://localhost:8000/analysis/analysis_report_dynamic.html"
+    start "" "msedge.exe" "http://localhost:8000/analysis/analysis_report_dynamic.html"
 )
 
 python -m http.server 8000
