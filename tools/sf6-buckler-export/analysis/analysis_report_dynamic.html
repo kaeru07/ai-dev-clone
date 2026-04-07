@@ -459,12 +459,12 @@
                 if (!opts || !opts.chars) return;
                 const { ctx, scales, chartArea } = chart;
                 const xAxis = scales.x;
-                const maxIconSize = opts.iconSize || 36;
-                // tick間の実ピクセル幅に合わせてアイコンサイズを動的に制限
+                const maxIconSize = opts.iconSize || 28;
+                // tick間の実ピクセル幅を算出（幅の上限に使う）
                 const tickSpacing = xAxis.ticks.length > 1
                     ? Math.abs(xAxis.getPixelForTick(1) - xAxis.getPixelForTick(0))
                     : maxIconSize + 4;
-                const iconSize = Math.min(maxIconSize, tickSpacing - 4);
+                const maxDrawW = Math.max(6, tickSpacing - 2);
                 opts.chars.forEach((char, index) => {
                     if (index >= xAxis.ticks.length) return;
                     const x = xAxis.getPixelForTick(index);
@@ -472,8 +472,9 @@
                     const img = charImageCache[char];
                     if (img && img.complete && img.naturalWidth > 0) {
                         const aspect = img.naturalWidth / img.naturalHeight;
-                        const drawW = iconSize * aspect;
-                        const drawH = iconSize;
+                        // 幅をtick間隔内に収め、高さはアスペクト比から逆算
+                        const drawW = Math.min(maxIconSize * aspect, maxDrawW);
+                        const drawH = drawW / aspect;
                         ctx.drawImage(img, x - drawW / 2, y, drawW, drawH);
                     } else {
                         ctx.fillStyle = getChartTextColor();
@@ -2413,7 +2414,7 @@
                         },
                         charIconAxis: {
                             chars: data.charWinRates.map(c => c.character),
-                            iconSize: 36
+                            iconSize: 28
                         }
                     },
                     scales: {
@@ -2455,7 +2456,7 @@
                         },
                         charIconAxis: {
                             chars: data.oppWinRates.map(o => o.opponent),
-                            iconSize: 36
+                            iconSize: 28
                         }
                     },
                     scales: {
