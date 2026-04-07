@@ -49,6 +49,15 @@
             border-bottom-color: #495057;
         }
 
+        body.dark-mode tr:hover {
+            background: #3a4155;
+        }
+
+        body.dark-mode .filter-container {
+            background: #2b3140 !important;
+            border-color: #4f5d78 !important;
+        }
+
         body.dark-mode .filter-btn {
             background: #343b4d;
             border-color: #4f5d78;
@@ -630,16 +639,8 @@
                             skipEmptyLines: true,
                             delimitersToGuess: [','],
                             complete: function (results) {
-                                console.log('=== PapaParse 解析結果 ===');
-                                console.log(`解析された行数: ${results.data.length}`);
-                                console.log(`CSVテキストの長さ: ${csvText.length} 文字`);
-                                console.log(`CSVの最初の100文字: ${csvText.substring(0, 100)}`);
-                                console.log(`PapaParseエラー: ${results.errors.length}件`);
                                 if (results.errors.length > 0) {
-                                    console.log('エラーの詳細:', results.errors);
-                                    results.errors.forEach((err, idx) => {
-                                        console.log(`  [${idx}] タイプ: ${err.type}, コード: ${err.code}, メッセージ: ${err.message}, 行: ${err.row}`);
-                                    });
+                                    console.warn('PapaParseエラー:', results.errors);
                                 }
 
                                 if (!results.data || results.data.length === 0) {
@@ -658,16 +659,6 @@
                                     });
 
                                 console.log(`✓ ${allBattles.length}件のバトルデータを読み込みました`);
-
-                                // デバッグ: 最初の5件のタイムスタンプとbattle_time_jstを確認
-                                console.log('=== 最初の5件のデータ ===');
-                                allBattles.slice(0, 5).forEach((b, i) => {
-                                    console.log(`[${i}] battle_time_jst: ${b.battle_time_jst}, timestamp: ${b.timestamp}, date: ${new Date(parseInt(b.timestamp))}`);
-                                });
-
-                                // デバッグ: 19日のデータ件数を確認
-                                const jan19Count = allBattles.filter(b => b.battle_time_jst && b.battle_time_jst.startsWith('2026-01-19')).length;
-                                console.log(`✓ 2026-01-19のデータ: ${jan19Count}件`);
 
                                 // フィルタUIを生成
                                 buildFilterUI();
@@ -1414,8 +1405,8 @@
                     currentWinStreak = 0;
                 }
             });
-            // 直近30戦の最大連勝数
-            const recent30 = battles.slice(-30);
+            // 直近30戦の最大連勝数（battles は新しい順なので先頭30件）
+            const recent30 = battles.slice(0, 30);
             let cur30Win = 0;
             let recent30WinStreak = 0;
             recent30.forEach(b => {
@@ -1906,7 +1897,7 @@
               オーバーパフォーム度
               <span class="tooltip-text">実勝率 - 期待勝率。プラスなら実力向上中、マイナスなら調整が必要。MR差を考慮した真の実力指標。</span>
             </div>
-            <div class="stat-value" style="font-size: 1.8em;">${data.overPerformance >= 0 ? '+' : ''}${data.overPerformance}%</div>
+            <div class="stat-value" style="font-size: 1.8em;">${parseFloat(data.overPerformance) >= 0 ? '+' : ''}${data.overPerformance}%</div>
             <small style="opacity: 0.8;">実勝率 - 期待勝率</small>
           </div>
         </div></div>
@@ -1928,8 +1919,8 @@
             </div>
             <div style="text-align: center;">
               <div style="font-size: 0.9em; opacity: 0.9; margin-bottom: 5px;">差分</div>
-              <div style="font-size: 2.5em; font-weight: bold; color: ${data.overPerformance >= 0 ? '#90EE90' : '#FFB6C6'};">
-                ${data.overPerformance >= 0 ? '+' : ''}${data.overPerformance}%
+              <div style="font-size: 2.5em; font-weight: bold; color: ${parseFloat(data.overPerformance) >= 0 ? '#90EE90' : '#FFB6C6'};">
+                ${parseFloat(data.overPerformance) >= 0 ? '+' : ''}${data.overPerformance}%
               </div>
             </div>
           </div>
@@ -2679,27 +2670,6 @@
                 }
             });
 
-            // MR推移チャート
-            charts.mrChart = new Chart(document.getElementById('mrChart'), {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Master Rating',
-                        data: data.mrData,
-                        borderColor: 'rgba(102, 126, 234, 1)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        x: { type: 'linear', title: { display: true, text: 'Battle #' } },
-                        y: { title: { display: true, text: 'MR' } }
-                    }
-                }
-            });
         }
 
         // 初回読み込み
