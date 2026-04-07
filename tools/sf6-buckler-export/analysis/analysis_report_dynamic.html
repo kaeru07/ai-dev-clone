@@ -450,7 +450,10 @@
                     const y = chartArea.bottom + 6;
                     const img = charImageCache[char];
                     if (img && img.complete && img.naturalWidth > 0) {
-                        ctx.drawImage(img, x - iconSize / 2, y, iconSize, iconSize);
+                        const aspect = img.naturalWidth / img.naturalHeight;
+                        const drawW = iconSize * aspect;
+                        const drawH = iconSize;
+                        ctx.drawImage(img, x - drawW / 2, y, drawW, drawH);
                     } else {
                         ctx.fillStyle = getChartTextColor();
                         ctx.font = '10px sans-serif';
