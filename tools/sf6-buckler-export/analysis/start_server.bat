@@ -66,7 +66,7 @@ if defined CHROME (
     start "" "%CHROME%" "http://localhost:8000/analysis/analysis_report_dynamic.html"
 ) else (
     REM デフォルトブラウザで起動
-    start "" "http://localhost:8000/analysis/analysis_report_dynamic.html"
+    explorer "http://localhost:8000/analysis/analysis_report_dynamic.html"
 )
 
 python -m http.server 8000
