@@ -157,6 +157,13 @@ function extractMyIdentity(nextData) {
     info?.player_name || info?.fighter_name || info?.name ||
     banner?.player_name || banner?.name || "";
 
+  // デバッグ: 実際のキー一覧を出力（名前が取れない場合の調査用）
+  if (!myPlayerName) {
+    console.log("[DEBUG] fighter_banner_info keys:", banner ? Object.keys(banner) : "null");
+    console.log("[DEBUG] personal_info keys:", info ? Object.keys(info) : "null");
+    console.log("[DEBUG] personal_info:", JSON.stringify(info, null, 2));
+  }
+
   return { myShortId, myFighterId, myPlayerName };
 }
 
@@ -308,7 +315,16 @@ async function main() {
         }
       }
 
-      const { myShortId, myFighterId, myPlayerName } = extractMyIdentity(next1);
+      const { myShortId, myFighterId, myPlayerName: rawPlayerName } = extractMyIdentity(next1);
+
+      // replayの自分側データから名前を補完
+      const firstReplay = next1?.props?.pageProps?.replay_list?.[0];
+      const { me: meFirst } = firstReplay ? pickSides(firstReplay, myShortId, myFighterId) : { me: null };
+      const replayPlayerName =
+        meFirst?.player?.player_name || meFirst?.player?.name ||
+        meFirst?.player?.fighter_name || meFirst?.player?.nickname || "";
+      const myPlayerName = rawPlayerName || replayPlayerName;
+
       console.log("My identity:", { myShortId, myFighterId, myPlayerName });
 
       // プロフィール情報をJSONファイルに保存（HTMLがここから読み取る）
