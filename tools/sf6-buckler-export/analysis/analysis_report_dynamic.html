@@ -459,7 +459,12 @@
                 if (!opts || !opts.chars) return;
                 const { ctx, scales, chartArea } = chart;
                 const xAxis = scales.x;
-                const iconSize = opts.iconSize || 36;
+                const maxIconSize = opts.iconSize || 36;
+                // tick間の実ピクセル幅に合わせてアイコンサイズを動的に制限
+                const tickSpacing = xAxis.ticks.length > 1
+                    ? Math.abs(xAxis.getPixelForTick(1) - xAxis.getPixelForTick(0))
+                    : maxIconSize + 4;
+                const iconSize = Math.min(maxIconSize, tickSpacing - 4);
                 opts.chars.forEach((char, index) => {
                     if (index >= xAxis.ticks.length) return;
                     const x = xAxis.getPixelForTick(index);
@@ -1807,7 +1812,7 @@
 
             const latestBattle = battles[0] || allBattles[0] || {};
             const profile = {
-                userCode: latestBattle.user_code || latestBattle.usercode || latestBattle.short_id || latestBattle.fighter_id || latestBattle.code || '-',
+                userCode: latestBattle.my_short_id || latestBattle.user_code || latestBattle.usercode || latestBattle.short_id || latestBattle.fighter_id || latestBattle.code || '-',
                 playerName: latestBattle.player_name || latestBattle.user_name || latestBattle.nickname || latestBattle.player || latestBattle.name || '-'
             };
 

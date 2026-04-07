@@ -320,6 +320,7 @@ async function main() {
         "round_score",
         "replay_id",
         "page",
+        "my_short_id",
       ].join(",");
 
       const rows = [header];
@@ -400,6 +401,7 @@ async function main() {
             myRoundResults,
             replayId,
             String(p),
+            myShortId || "",
           ]
             .map(csvEscape)
             .join(",");
